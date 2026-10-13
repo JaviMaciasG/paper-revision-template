@@ -1,4 +1,4 @@
-# IEEE manuscript and rebuttal template
+# Generic manuscript and rebuttal template
 
 A reusable paper project with explicit submitted manuscripts and review rounds. The example IEEE paper is a short manual; its first revision demonstrates text changes and reference corrections, additions, and deletions. All names, results, and references in the examples are fictional.
 
