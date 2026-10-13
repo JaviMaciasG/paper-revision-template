@@ -27,7 +27,7 @@ init_case() {
     for name in Makefile README.md LICENSE .gitignore; do cp -- "$TEST_SOURCE_ROOT/$name" "$project/$name"; done
     # Workflow fixtures model editable publication projects, not the protected clone.
     set_cfg "$project/Makefile" PROJECT_ROLE publication
-    for name in support tests .github; do copy_sources "$TEST_SOURCE_ROOT/$name" "$project/$name"; done
+    for name in support tests; do copy_sources "$TEST_SOURCE_ROOT/$name" "$project/$name"; done
     for stage in original revised1 reply1; do copy_sources "$TEST_SOURCE_ROOT/tests/fixtures/$stage" "$project/$stage"; done
     # Any accidental Python use fails the command, even if Python is installed locally.
     mkdir -- "$CASE_DIR/no-python"

@@ -17,7 +17,7 @@ case "$command" in
         make_temp "$(dirname -- "$destination")"; project=$TASK_TEMP/project; mkdir -- "$project"
         for name in Makefile README.md LICENSE .gitignore; do cp -p -- "$TEMPLATE_ROOT/$name" "$project/$name"; done
         set_cfg "$project/Makefile" PROJECT_ROLE publication
-        for name in support tests .github; do copy_sources "$TEMPLATE_ROOT/$name" "$project/$name"; done
+        for name in support tests; do copy_sources "$TEMPLATE_ROOT/$name" "$project/$name"; done
         copy_sources "$TEMPLATE_SUPPORT/starter" "$project/original"
         awk '
           /^# IEEE manuscript and rebuttal template$/ {print "# Manuscript project"; next}

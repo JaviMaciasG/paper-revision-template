@@ -40,7 +40,7 @@ Use GNU Make, Bash 3.2 or newer, and ordinary Unix utilities on Linux/macOS. Ins
 
 `make check-tools` checks the tools; `make help` works without TeX or Bash. Every stage has its own help target. Builds use latexmk's dependency tracking and project-owned configuration, ignoring personal latexmk configuration. PDFs sit beside their TeX sources; auxiliaries, expanded sources, and generated bibliography/configuration files stay in each stage's `build/`. An unchanged comparison does not rebuild its PDF. Sources, citations, and bibliography dependencies are followed automatically. Undefined citations/references and missing bibliography entries fail the build.
 
-GitHub Actions installs the build tools directly on its Ubuntu runner and executes the same Make targets used locally. Tool versions can differ between installations, and PDF timestamps can vary across clean builds. Byte-for-byte reproducible PDFs across machines are not promised.
+Tool versions can differ between installations, and PDF timestamps can vary across clean builds. Byte-for-byte reproducible PDFs across machines are not promised.
 
 ## Layout and everyday commands
 
