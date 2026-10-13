@@ -51,7 +51,7 @@ def locked(stage):
         yield out
 
 
-def compile_tex(stage, basename, bibliography=True):
+def compile_tex(stage, basename, bibliography=True, internal=False):
     source = stage / (basename + '.tex')
     if not source.is_file():
         source = stage / 'build' / (basename + '.tex')
@@ -60,9 +60,9 @@ def compile_tex(stage, basename, bibliography=True):
     require(['latexmk', 'pdflatex'] + (['bibtex'] if bibliography else []))
     run(['latexmk', '-norc', '-r', HELPERS / 'latexmkrc', '-pdf',
          '-interaction=nonstopmode', '-halt-on-error', '-file-line-error',
-         '-recorder', '-auxdir=build', '-outdir=.', '-emulate-aux-dir', *([] if bibliography else ['-bibtex-']),
+         '-recorder', '-auxdir=build', '-outdir=' + ('build' if internal else '.'), '-emulate-aux-dir', *([] if bibliography else ['-bibtex-']),
          source.relative_to(stage)], stage)
-    return stage / (basename + '.pdf')
+    return stage / ('build/' if internal else '') / (basename + '.pdf')
 
 
 def paper(stage):
@@ -131,7 +131,7 @@ def replies(stage, letters):
         return [compile_tex(stage, letter) for letter in letters]
 
 
-def bundle(stage, revision_value, letters):
+def bundle(stage, revision_value, letters, cover=False):
     if not revision_value:
         raise ValueError('Set REVISION in the rebuttal Makefile.')
     revision = (stage / revision_value).resolve()
@@ -139,16 +139,20 @@ def bundle(stage, revision_value, letters):
     if not (shutil.which('pdfunite') or shutil.which('gs')):
         raise ValueError('PDF bundles require pdfunite or gs.')
     with locked(stage) as out:
+        prefix = []
+        if cover:
+            update(out / 'rebuttal-cover.tex', (HELPERS / 'rebuttal-cover.tex').read_bytes())
+            prefix.append(compile_tex(stage, 'rebuttal-cover', bibliography=False, internal=True))
         for letter in letters:
             pdf = compile_tex(stage, letter)
             target = stage / (letter + '-with-diff.pdf')
             temporary = out / (letter + '-with-diff.tmp.pdf')
             try:
                 if shutil.which('pdfunite'):
-                    run(['pdfunite', pdf, comparison, temporary], stage)
+                    run(['pdfunite', *prefix, pdf, comparison, temporary], stage)
                 else:
                     run(['gs', '-dBATCH', '-dNOPAUSE', '-dSAFER', '-sDEVICE=pdfwrite',
-                         '-sOutputFile=' + str(temporary), pdf, comparison], stage)
+                         '-sOutputFile=' + str(temporary), *prefix, pdf, comparison], stage)
                 temporary.replace(target)
             finally:
                 temporary.unlink(missing_ok=True)
@@ -232,6 +236,13 @@ def init_project(destination_value):
     print('After submitting the original manuscript, run make new-round in the new project.')
 
 
+def response_scaffold(identity, style):
+    heading = ('Responses to the Editor comments' if identity == 'editor' else
+               'Responses to the comments of reviewer ' + identity.removeprefix('reviewer'))
+    return ((HELPERS / 'comment-scaffold.tex').read_text()
+            .replace('@@HEADING@@', heading).replace('@@IDENTITY@@', identity).replace('@@LIST@@', style))
+
+
 def next_round():
     # Lock outside the source tree, so help/clone do not depend on generated state.
     lockname = 'paper-template-' + hashlib.sha256(str(ROOT).encode()).hexdigest()[:16] + '.lock'
@@ -259,6 +270,9 @@ def next_round():
         reviewer_match = re.search(r'^REVIEWERS\s*:?=\s*(.*?)\s*$',
                                    (previous_reply / 'Makefile').read_text(), re.M)
         reviewers = reviewer_match.group(1).split() if reviewer_match else ['1', '2']
+        cover_match = re.search(r'^COVER\s*(?::|\?)?=\s*([01])\s*$',
+                                (previous_reply / 'Makefile').read_text(), re.M)
+        cover_default = cover_match.group(1) if cover_match else '0'
         if not reviewers or any(not re.fullmatch(r'[1-9][0-9]*', r) for r in reviewers):
             raise ValueError('REVIEWERS must contain positive reviewer numbers.')
         required = ['editor-comments.tex'] + [f'reviewer{r}-comments.tex' for r in reviewers]
@@ -277,12 +291,13 @@ def next_round():
             (temporary / revision.name / 'Makefile').write_text(
                 f'TYPE := revision\nBASELINE := ../{previous.name}\ninclude ../support/manuscript.mk\n')
             (temporary / reply.name / 'Makefile').write_text(
-                f'REVISION := ../{revision.name}\nREVIEWERS := {" ".join(reviewers)}\ninclude ../support/reply.mk\n')
+                f'REVISION := ../{revision.name}\nREVIEWERS := {" ".join(reviewers)}\nCOVER := {cover_default}\ninclude ../support/reply.mk\n')
             # Clear every comment file, including any no-longer-configured reviewers.
             for p in (temporary / reply.name).glob('*-comments.tex'):
-                title = 'Editor' if p.name == 'editor-comments.tex' else p.stem.replace('-comments', '').replace('reviewer', 'Reviewer ')
-                p.write_text('\\section*{' + title + '}\n\\reviewcomment{TODO: Insert the new comment.}\n'
-                             '\\response{TODO: Write the response and identify manuscript changes.}\n')
+                identity = p.stem.removesuffix('-comments')
+                match = re.search(r'\\begin\{(enumerate|itemize)\}', p.read_text())
+                style = match.group(1) if match else 'enumerate'
+                p.write_text(response_scaffold(identity, style))
             (temporary / revision.name).rename(revision)
             try:
                 (temporary / reply.name).rename(reply)
@@ -374,6 +389,7 @@ def main():
     parser.add_argument('--dest')
     parser.add_argument('--baseline')
     parser.add_argument('--revision')
+    parser.add_argument('--cover', choices=['0', '1'], default='0')
     parser.add_argument('--letters', nargs='+', default=['responses', 'editor', 'reviewer1', 'reviewer2'])
     parser.add_argument('--diff', action='store_true')
     parser.add_argument('--merge', action='store_true')
@@ -383,7 +399,7 @@ def main():
         if args.command == 'paper': paper(stage)
         elif args.command == 'diff': diff(stage, args.baseline)
         elif args.command == 'reply': replies(stage, args.letters)
-        elif args.command == 'bundle': bundle(stage, args.revision, args.letters)
+        elif args.command == 'bundle': bundle(stage, args.revision, args.letters, cover=args.cover == '1')
         elif args.command == 'check-tools': check_tools(args.diff, args.merge)
         elif args.command == 'init-project': init_project(args.dest)
         elif args.command == 'new-round': next_round()

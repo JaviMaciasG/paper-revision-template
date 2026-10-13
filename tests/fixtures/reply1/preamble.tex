@@ -1,10 +1,21 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[12pt,a4paper]{article}
 \usepackage[T1]{fontenc}
-\usepackage[margin=25mm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{enumitem}
+\usepackage{needspace}
 \usepackage{xcolor}
+\usepackage[normalem]{ulem}
+\usepackage[margin=25mm]{geometry}
+\usepackage[cmex10]{amsmath}
+\usepackage{amsthm,amsfonts,amssymb}
 \usepackage{url}
+\usepackage[bookmarks=true,bookmarksnumbered=true,hypertexnames=false,
+  breaklinks=false,colorlinks=true,linkcolor=blue,citecolor=black,
+  urlcolor=black,hyperfootnotes=false]{hyperref}
 \input{metadata.tex}
-\newcommand{\reviewcomment}[1]{\par\medskip\noindent\textit{Comment: #1}\par}
-\newcommand{\response}[1]{\par\smallskip\noindent\textbf{Response:} #1\par}
-\newcommand{\lettertitle}[1]{\begin{center}{\Large\bfseries #1}\par\medskip
-\PaperTitle\par\smallskip\PaperAuthors\par Submission: \SubmissionID\end{center}}
+\input{commands.tex}
+\newcommand{\ReplyAudience}{all the reviewers}
+\title{Responses to the comments of \ReplyAudience{} to the previously submitted
+  manuscript ``\PaperTitle{}'' (manuscript ID \SubmissionID{})}
+\author{\PaperAuthors}
+\date{}

@@ -1,0 +1,22 @@
+% Formatting preserved from the original rebuttal workflow.
+\newcommand{\responseWResponse}[1]{%
+  \par\vspace{1ex}%
+  \noindent\textbf{Response: #1}%
+  \par\vspace{1ex}%
+}
+\newcommand{\response}[1]{%
+  \par\vspace{1ex}%
+  \noindent\textbf{#1}%
+  \par\vspace{1ex}%
+}
+\newcommand{\reviewer}{\emph}
+\newcommand{\reviewercomment}{\reviewer}
+\newcommand{\reviewcomment}{\reviewercomment}% Compatibility with earlier template versions.
+\newcommand{\comment}{\textcolor{red}}
+\newcommand{\TODO}{\textcolor{red}}
+\definecolor{RED}{rgb}{1,0,0}
+\definecolor{BLUE}{rgb}{0,0,1}
+\providecommand{\DIFadd}[1]{{\protect\color{blue}\uwave{#1}}}
+\providecommand{\DIFdel}[1]{{\protect\color{red}\sout{#1}}}
+\providecommand{\DIFaddFL}[1]{\DIFadd{#1}}
+\providecommand{\DIFdelFL}[1]{\DIFdel{#1}}

@@ -1,5 +1,7 @@
 """End-to-end checks run in disposable copies, never in submitted stages."""
 import os
+import hashlib
+import re
 import importlib.util
 from unittest.mock import patch
 from pathlib import Path
@@ -44,6 +46,89 @@ class Workflow(unittest.TestCase):
         else: self.assertNotEqual(r.returncode, 0, r.stdout)
         return r
 
+    def pdf_text(self, pdf):
+        if shutil.which('pdftotext'):
+            command = ['pdftotext', str(pdf), '-']
+        elif shutil.which('gs'):
+            command = ['gs', '-q', '-dBATCH', '-dNOPAUSE', '-sDEVICE=txtwrite', '-sOutputFile=-', str(pdf)]
+        else:
+            self.skipTest('PDF inspection needs Poppler or Ghostscript')
+        return ' '.join(subprocess.run(command, check=True, capture_output=True, text=True).stdout.split())
+
+    def pdf_pages(self, pdf):
+        if shutil.which('pdfinfo'):
+            text = subprocess.run(['pdfinfo', str(pdf)], check=True, capture_output=True, text=True).stdout
+            return int(re.search(r'^Pages:\s+(\d+)', text, re.M).group(1))
+        if not shutil.which('gs'):
+            self.skipTest('PDF inspection needs Poppler or Ghostscript')
+        absolute = str(pdf.resolve())
+        command = ['gs', '-q', '-dNODISPLAY', '--permit-file-read=' + absolute,
+                   '-sPDFname=' + absolute, '-c', 'PDFname (r) file runpdfbegin pdfpagecount = quit']
+        return int(subprocess.run(command, check=True, capture_output=True, text=True).stdout.strip())
+
+    def test_rebuttal_titles_metadata_and_optional_covers(self):
+        self.make('-C', 'reply1')
+        letters = ('responses', 'editor', 'reviewer1', 'reviewer2')
+        for letter, audience in [('responses', 'all the reviewers'), ('editor', 'the editor'),
+                                 ('reviewer1', 'reviewer 1'), ('reviewer2', 'reviewer 2')]:
+            text = self.pdf_text(self.root / 'reply1' / (letter + '.pdf'))
+            self.assertIn('Responses to the comments of ' + audience + ' to the previously submitted manuscript', text)
+            self.assertIn('A Practical Template for Manuscripts and Rebuttals', text)
+            self.assertIn('manuscript ID EXAMPLE-001', text)
+            self.assertIn('Template Author', text)
+            self.assertIn('1 Introduction', text)
+            self.assertNotIn('Note to the reviewers:', text)
+        text = self.pdf_text(self.root / 'reply1/responses.pdf')
+        for heading in ('2 Responses to the Editor comments', '3 Responses to the comments of reviewer 1',
+                        '4 Responses to the comments of reviewer 2'):
+            self.assertIn(heading, text)
+        reviewer_text = self.pdf_text(self.root / 'reply1/reviewer1.pdf')
+        self.assertIn('2 Responses to the comments of reviewer 1', reviewer_text)
+        self.assertIn('Avoid manually named flattened snapshots', reviewer_text)
+        self.assertIn('Avoid manually named flattened snapshots', text)
+        before = {letter: hashlib.sha256((self.root / 'reply1' / (letter + '.pdf')).read_bytes()).digest()
+                  for letter in letters}
+        self.make('-C', 'reply1', 'bundle', 'COVER=0')
+        diff_pages = self.pdf_pages(self.root / 'revised1/paper-diff.pdf')
+        expected = {letter: self.pdf_pages(self.root / 'reply1' / (letter + '.pdf')) + diff_pages for letter in letters}
+        for letter in letters:
+            pdf = self.root / 'reply1' / (letter + '-with-diff.pdf')
+            self.assertEqual(self.pdf_pages(pdf), expected[letter])
+            self.assertNotIn('Note to the reviewers:', self.pdf_text(pdf))
+        self.make('bundle', 'COVER=1')
+        for letter in letters:
+            pdf = self.root / 'reply1' / (letter + '-with-diff.pdf')
+            self.assertEqual(self.pdf_pages(pdf), expected[letter] + 1)
+            text = self.pdf_text(pdf)
+            self.assertTrue(text.startswith('Note to the reviewers:'), text[:100])
+            self.assertLess(text.index('Note to the reviewers:'), text.index('Responses to the comments'))
+            self.assertIn('manuscript ID EXAMPLE-001', text)
+            self.assertEqual(before[letter], hashlib.sha256((self.root / 'reply1' / (letter + '.pdf')).read_bytes()).digest())
+        self.assertTrue((self.root / 'reply1/build/rebuttal-cover.pdf').is_file())
+        self.assertFalse((self.root / 'reply1/rebuttal-cover.pdf').exists())
+        config = self.root / 'reply1/Makefile'
+        config.write_text(config.read_text().replace('COVER := 0', 'COVER := 1'))
+        self.make('-C', 'reply1', 'bundle')
+        self.assertEqual(self.pdf_pages(self.root / 'reply1/responses-with-diff.pdf'), expected['responses'] + 1)
+        self.make('-C', 'reply1', 'bundle', 'COVER=0')
+        self.assertEqual(self.pdf_pages(self.root / 'reply1/responses-with-diff.pdf'), expected['responses'])
+        self.make('-C', 'reply1', 'bundle', 'COVER=2', success=False)
+        metadata = self.root / 'reply1/metadata.tex'
+        metadata.write_text(metadata.read_text().replace('EXAMPLE-001', 'JOURNAL-2026-002').replace('Template Author', r'Ada Author \and Ben Author'))
+        self.make('-C', 'reply1')
+        for letter in letters:
+            text = self.pdf_text(self.root / 'reply1' / (letter + '.pdf'))
+            self.assertIn('manuscript ID JOURNAL-2026-002', text)
+            self.assertIn('Ada Author', text)
+            self.assertIn('Ben Author', text)
+        self.make('-C', 'reply1', 'bundle', 'COVER=1')
+        updated = self.pdf_text(self.root / 'reply1/responses-with-diff.pdf')
+        self.assertGreaterEqual(updated.count('manuscript ID JOURNAL-2026-002'), 2)
+        self.assertNotIn('EXAMPLE-001', updated)
+        self.make('-C', 'reply1', 'clean')
+        self.assertFalse((self.root / 'reply1/build/rebuttal-cover.pdf').exists())
+        self.assertTrue((self.root / 'reply1/responses-with-diff.pdf').is_file())
+
     def test_help_and_missing_tools(self):
         with tempfile.TemporaryDirectory() as path:
             for tool in ('make',):
@@ -65,7 +150,10 @@ class Workflow(unittest.TestCase):
         assets = {'illustration.pdf': b'root PDF figure', 'figures/paper.pdf': b'nested PDF figure'}
         for relative, data in assets.items():
             (self.root / 'revised1' / relative).write_bytes(data)
+        config = self.root / 'reply1/Makefile'
+        config.write_text(config.read_text().replace('COVER := 0', 'COVER := 1'))
         self.make('new-round')
+        self.assertIn('COVER := 1', (self.root / 'reply2/Makefile').read_text())
         for relative in ('revised2/paper.pdf', 'revised2/paper-diff.pdf',
                          'reply2/responses.pdf', 'reply2/responses-with-diff.pdf'):
             self.assertFalse((self.root / relative).exists())
@@ -76,6 +164,12 @@ class Workflow(unittest.TestCase):
         self.assertIn('../revised1', (self.root / 'revised2/Makefile').read_text())
         self.assertIn('../revised2', (self.root / 'reply2/Makefile').read_text())
         self.assertIn('TODO', (self.root / 'reply2/reviewer1-comments.tex').read_text())
+        for identity, style in [('editor', 'itemize'), ('reviewer1', 'enumerate'), ('reviewer2', 'itemize')]:
+            scaffold = (self.root / 'reply2' / (identity + '-comments.tex')).read_text()
+            self.assertIn('\\begin{' + style + '}', scaffold)
+            self.assertEqual(scaffold.count('\\item \\reviewercomment'), 3)
+            self.assertIn('revised section, page, figure, or table', scaffold)
+        self.assertIn('reviewer1-comments.tex', (self.root / 'reply2/reviewer1.tex').read_text())
         self.assertEqual(before, (self.root / 'reply1/reviewer1-comments.tex').read_bytes())
         self.make('-j4')
         self.assertTrue((self.root / 'revised2/paper-diff.pdf').is_file())
@@ -161,10 +255,11 @@ class Workflow(unittest.TestCase):
             def quiet_run(args, cwd, capture=False):
                 return subprocess.run(list(map(str, args)), cwd=cwd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
             with patch.object(driver, 'run', side_effect=quiet_run):
-                driver.bundle(self.root / 'reply1', '../revised1', ['responses'])
+                driver.bundle(self.root / 'reply1', '../revised1', ['responses'], cover=True)
         pdf = self.root / 'reply1/responses-with-diff.pdf'
         self.assertTrue(pdf.read_bytes().startswith(b'%PDF-'))
         self.assertGreater(pdf.stat().st_size, 10000)
+        self.assertEqual(self.pdf_pages(pdf), self.pdf_pages(self.root / 'reply1/responses.pdf') + self.pdf_pages(self.root / 'revised1/paper-diff.pdf') + 1)
 
     def test_distclean_after_build_directory_removed(self):
         self.make('-C', 'original')
@@ -220,6 +315,10 @@ class Workflow(unittest.TestCase):
         self.assertIn('../revised1', (project / 'reply1/Makefile').read_text())
         for filename in ('metadata.tex', 'editor-comments.tex', 'reviewer1-comments.tex', 'reviewer2-comments.tex'):
             self.assertIn('TODO', (project / 'reply1' / filename).read_text())
+        for identity, style in [('editor', 'itemize'), ('reviewer1', 'enumerate'), ('reviewer2', 'itemize')]:
+            scaffold = (project / 'reply1' / (identity + '-comments.tex')).read_text()
+            self.assertIn('\\begin{' + style + '}', scaffold)
+            self.assertEqual(scaffold.count('\\item \\reviewercomment'), 3)
         revised = project / 'revised1/paper.tex'
         revised.write_text(revised.read_text().replace('Author Manuscript', 'Revised Author Manuscript'))
         self.make('-j4', cwd=project)

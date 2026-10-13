@@ -2,6 +2,7 @@
 PYTHON ?= python3
 REVISION ?=
 REVIEWERS ?= 1 2
+COVER ?= 0
 TEMPLATE_BUILD := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 DRIVER = $(PYTHON) "$(TEMPLATE_BUILD)/template.py"
 LETTERS := responses editor $(addprefix reviewer,$(REVIEWERS))
@@ -11,9 +12,9 @@ all:
 $(LETTERS):
 	@$(DRIVER) reply --letters $@
 bundle:
-	@$(DRIVER) bundle --revision "$(REVISION)" --letters $(LETTERS)
+	@$(DRIVER) bundle --revision "$(REVISION)" --cover "$(COVER)" --letters $(LETTERS)
 help:
-	@printf '%s\n' '  all          Build combined, editor and individual letters (default)' 	  '  responses    Build the combined letter' '  editor       Build the editor letter' 	  '  $(addprefix reviewer,$(REVIEWERS)) Build individual reviewer letters' 	  '  bundle       Build letters and append the matching manuscript comparison' 	  '  check-tools  Check compilation, comparison and PDF merging tools' 	  '  clean        Remove auxiliaries; retain final PDFs' 	  '  distclean    Remove all generated outputs' '  help         Show applicable commands without TeX' 'PDFs: stage folder; auxiliaries: build/' 	  'Revision: $(REVISION)' 'Example: make reviewer1; make bundle';
+	@printf '%s\n' '  all          Build combined, editor and individual letters (default)' 	  '  responses    Build the combined letter' '  editor       Build the editor letter' 	  '  $(addprefix reviewer,$(REVIEWERS)) Build individual reviewer letters' 	  '  bundle       Append the comparison; COVER=1 adds a note cover (default COVER=0)' 	  '  check-tools  Check compilation, comparison and PDF merging tools' 	  '  clean        Remove auxiliaries; retain final PDFs' 	  '  distclean    Remove all generated outputs' '  help         Show applicable commands without TeX' 'PDFs: stage folder; auxiliaries: build/' 	  'Revision: $(REVISION)' 'Cover default: $(COVER)' 'Example: make reviewer1; make bundle COVER=1';
 check-tools:
 	@$(DRIVER) check-tools --merge
 clean distclean:

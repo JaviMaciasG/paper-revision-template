@@ -83,7 +83,8 @@ Root `make` builds all manuscript PDFs, revision comparisons, and combined/edito
 | `make -C reply1` | Combined, editor, and individual letters |
 | `make -C reply1 reviewer1` | Reviewer 1's letter |
 | `make -C reply1 bundle` | Each letter plus the manuscript comparison |
-| `make bundle` | Bundles for every rebuttal stage |
+| `make bundle` | Bundles for every rebuttal stage, without covers by default |
+| `make bundle COVER=1` | Bundles with an initial note page |
 | `make zip` | Standalone source archives for every manuscript |
 | `make init-project DEST=../my-paper` | Independent project with a minimal IEEE starter |
 | `make new-round` | First or next numbered revision and rebuttal pair |
@@ -104,6 +105,7 @@ A rebuttal's Makefile declares its manuscript and reviewer numbers:
 ```make
 REVISION := ../revised1
 REVIEWERS := 1 2
+COVER := 0
 include ../support/reply.mk
 ```
 
@@ -115,7 +117,7 @@ After submitting the original manuscript in your initialized project, run:
 make new-round
 ```
 
-With no existing revisions, this creates `revised1` from your `original` sources and `reply1` from a blank rebuttal skeleton. `revised1/Makefile` sets `original` as the comparison baseline. The rebuttal has an editor and two reviewers, with explicit placeholders rather than the demonstration's comments or answers.
+With no existing revisions, this creates `revised1` from your `original` sources and `reply1` from a blank rebuttal skeleton. `revised1/Makefile` sets `original` as the comparison baseline. The rebuttal has an editor and two reviewers, with an opening comment/acknowledgment and three structured placeholder pairs rather than the demonstration's comments or answers. Each response prompts you to explain the action taken and identify the revised section, page, figure, or table.
 
 Edit `revised1/paper.tex`, its bibliography and figures as needed. Fill in `reply1/metadata.tex` with the actual manuscript title, authors, and submission ID, and enter comments and responses in the reviewer/editor files. Then build:
 
@@ -124,11 +126,11 @@ make -C revised1
 make -C reply1 bundle
 ```
 
-After submitting `revised1`, another `make new-round` creates `revised2` and `reply2`, with `revised1` as the baseline. It preserves the preceding rebuttal's metadata, formatting, reviewer/editor structure, and letter wrappers, while clearing all old comments and answers in `*-comments.tex`. Update the new metadata for the submission identifier. Keep round-specific comments in those files, rather than custom shared inputs, so clearing remains reliable.
+After submitting `revised1`, another `make new-round` creates `revised2` and `reply2`, with `revised1` as the baseline. It preserves the preceding rebuttal's metadata, formatting, reviewer/editor structure, and letter wrappers, while replacing old comments and answers in `*-comments.tex` with fresh structured placeholders. Each file retains its outer `enumerate` or `itemize` style, and the configured cover default is carried forward. Update the new metadata for the submission identifier. Keep round-specific comments in those files, rather than custom shared inputs, so clearing remains reliable.
 
 The same command creates `revised3`/`reply3` and later rounds. It skips generated PDFs, SyncTeX files, and `build/` contents while preserving PDF figures. It rejects symlinked sources, refuses overwrites, and rejects unpaired rebuttal stages. Root commands discover each new pair automatically. In the template clone itself, the first invocation creates round two because its worked-example round one already exists.
 
-To add a reviewer, create `reviewer3-comments.tex` and a `reviewer3.tex` wrapper following the existing examples, include that comment file in `responses.tex`, and add `3` to `REVIEWERS` in the Makefile. Subsequent stages preserve this structure.
+To add a reviewer, create `reviewer3-comments.tex` and a `reviewer3.tex` wrapper following the existing examples, include that comment file in `responses.tex`, and add `3` to `REVIEWERS` in the Makefile. When copying a wrapper, update its `\ReplyAudience` and comment-file input for the new reviewer number. Subsequent stages preserve this structure.
 
 ## How comparisons work
 
@@ -145,9 +147,53 @@ Review the comparison before submission: complex mathematics, tables, and figure
 
 ## Response letters
 
-`metadata.tex` contains manuscript title, authors, and submission ID. `preamble.tex` provides comment/response formatting. `editor-comments.tex` and `reviewerN-comments.tex` hold the actual comments and answers. The individual wrappers and `responses.tex` reuse those files.
+Each letter uses the original rebuttal format: 12-point A4 pages with 2.5 cm margins, a full title and manuscript authors, numbered **1 Introduction**, and numbered response sections. The combined letter includes editor and reviewer sections. Individual letters reuse the corresponding content.
 
-`bundle` builds the matching revision comparison first and appends it to each letter. Output names are `responses-with-diff.pdf`, `editor-with-diff.pdf`, and `reviewerN-with-diff.pdf`, placed directly in the reply folder. Plain response letters can be built independently of the manuscript comparison.
+### Manuscript title, authors, and ID
+
+Edit the metadata in each `replyN/metadata.tex`:
+
+```tex
+\newcommand{\PaperTitle}{Your real manuscript title}
+\newcommand{\PaperAuthors}{Ada Author \and Ben Author}
+\newcommand{\SubmissionID}{JOURNAL-2026-001}
+```
+
+Use the same author names as the paper. `SubmissionID` is the manuscript identifier assigned by the journal; update it for the current round if the journal issues a new one. The same values appear in every individual and combined letter, and the optional cover uses the same title and ID. Metadata is explicit rather than extracted from arbitrary manuscript source code.
+
+The combined title is **Responses to the comments of all the reviewers to the previously submitted manuscript "manuscript title" (manuscript ID manuscript-id)**. Individual titles substitute **reviewer X** or **the editor**. Section headings are **Responses to the comments of reviewer X** and **Responses to the Editor comments**.
+
+### Comments and answers
+
+Edit `editor-comments.tex` and `reviewerN-comments.tex`. `reviewerN.tex` is a standalone wrapper with editing guidance; `responses.tex` includes the same shared comment files. Keep each answer in its shared file so it appears identically in both forms.
+
+```tex
+\begin{enumerate}
+  \item \reviewercomment{The reviewer's comment, copied verbatim.}
+    \response{Our answer, including the change and its location in the manuscript.}
+  \item \reviewercomment{The next comment.}
+    \response{A first response paragraph.}
+    \response{An additional explanation.}
+\end{enumerate}
+```
+
+Use `itemize` for bulleted comments. For a response with several actions, add a nested list and wrap each item's answer text in `\response{...}`. The demonstration shows both list styles and a nested response list. New rounds supply editable list scaffolds rather than empty files or copied old answers; add or remove items to match the received comments.
+
+`\reviewercomment{...}` renders comments in italics. `\response{...}` makes the **entire answer bold**, with the original `1ex` spacing before and after it. `\responseWResponse{...}` does the same while adding **Response:**. `\reviewcomment` remains an alias for compatibility and adds no label. `commands.tex` holds these formatting definitions; `preamble.tex` holds the document layout. The introduction retains the original explanation, including red deletion and blue addition examples.
+
+### Plain letters and optional covers
+
+```sh
+make -C reply1                  # Combined, editor, and individual letters
+make -C reply1 reviewer1        # One individual letter
+make -C reply1 bundle           # Responses followed by the manuscript diff
+make -C reply1 bundle COVER=1   # Initial note page, responses, then the diff
+make bundle COVER=1            # Covered bundles for all reply stages
+```
+
+The cover reproduces the original **Note to the reviewers** presentation, is unnumbered, and explains the bundle's contents. Plain letters always begin with their title and authors. `COVER=0` disables the cover and is the initial default; set `COVER := 1` in a reply Makefile to make covers that round's default. A command-line setting overrides that default. For container builds, use `sh support/container.sh bundle COVER=1`.
+
+Bundles use `responses-with-diff.pdf`, `editor-with-diff.pdf`, and `reviewerN-with-diff.pdf` directly in the reply folder. Switching the cover option regenerates those same filenames. Plain response PDFs are unchanged by the cover option. Cover intermediates remain inside `build/`, and cleanup removes them. Plain response letters can be built independently of the manuscript comparison.
 
 ## Submission archives and history
 
@@ -165,8 +211,18 @@ git tag submitted-original
 
 Use a matching tag such as `submitted-revised1` for later submissions. Build targets never commit, push, or create tags. Initialized projects contain no copied Git history and have no dependency on the template clone or the paper from which the workflow was extracted.
 
+## Why I keep separate revision folders
+
+I chose this structure because the practical unit of this work is a submission round: a manuscript, its bibliography and figures, and the corresponding responses. Separate folders keep every round immediately accessible and buildable without checking out a different commit. I can compare submissions side by side and work on a new revision while consulting earlier reviewer comments and answers.
+
+Copying the sources into each new `revisedN` folder is deliberate. Each manuscript has its own inputs, and each `replyN` folder keeps its responses alongside that round. The baseline link makes the intended comparison explicit, and submission archives can be prepared directly from the appropriate manuscript folder. This also makes the workflow usable by collaborators who are comfortable with folders and LaTeX but do not routinely navigate Git history.
+
+Tags and repository history could identify the same milestones, but accessing a previous manuscript would then require a checkout, an exported snapshot, or a separate worktree. I prefer keeping the submission stages visible in one working directory. Git history still records edits within each stage, and tags can identify the exact commits submitted to the journal. The folders complement that history; they do not replace it or automatically make old submissions immutable. Submitted sources must remain frozen.
+
+The tradeoff is duplicated source content, more directories, and potentially greater repository size, especially with large figures. Build rules are shared to avoid repeated maintenance. Manuscript text, bibliography, and figures stay local to each round: sharing those mutable inputs could silently change the output of an earlier submission. This accepts some duplication in exchange for explicit, readily accessible submission records.
+
 ## Validation and license
 
-`make test` uses fixed demonstration fixtures in temporary projects, so authors can replace the live manuscript without breaking the checks. It verifies project initialization, the minimal starter, first and subsequent revisions, fresh parallel builds, unresolved references, dependency updates, no-op comparisons, stage creation, overwrite protection, source archive extraction/compilation, help without TeX, missing-tool diagnostics, build failures, PDF placement, and cleanup that preserves PDF figures. CI retains generated PDFs and ZIPs as artifacts.
+`make test` uses fixed demonstration fixtures in temporary projects, so authors can replace the live manuscript without breaking the checks. It verifies project initialization, the minimal starter, first and subsequent revisions, fresh parallel builds, unresolved references, dependency updates, no-op comparisons, stage creation, overwrite protection, source archive extraction/compilation, help without TeX, missing-tool diagnostics, build failures, PDF placement, original rebuttal titles and sections, guided response scaffolds, optional bundle covers, and cleanup that preserves PDF figures. CI retains generated PDFs and ZIPs as artifacts.
 
 The build scripts and example documents are MIT licensed. TeX Live, IEEEtran, and other tools retain their own licenses; their files are not redistributed in the source template.

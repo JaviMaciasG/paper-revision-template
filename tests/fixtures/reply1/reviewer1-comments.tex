@@ -1,4 +1,24 @@
-\section*{Reviewer 1}
-\reviewcomment{Explain how authors select a baseline and avoid manually naming flattened snapshots.}
-\response{Section IV now explains fixed generated filenames and automatic regeneration.
-Each revision's Makefile names the preceding manuscript directory as its baseline.}
+\Needspace{14\baselineskip}
+\section{Responses to the comments of reviewer 1}
+\label{sec:responses-reviewer-1}
+\reviewercomment{The workflow is useful, but the comparison process needs a clearer explanation.}
+\response{We appreciate these constructive comments. We clarified the build and comparison steps as follows.}
+\begin{enumerate}
+  \Needspace{5\baselineskip}
+  \item \reviewercomment{Explain how the baseline is selected for each revision.}
+    \response{Section IV explains that each revision names its preceding manuscript as its baseline.}
+    \Needspace{8\baselineskip}
+    \begin{samepage}
+    \response{The comparison build performs these steps:}
+    \begin{itemize}
+      \item \response{Compile both manuscripts and their bibliographies.}
+      \item \response{Expand their included sources and compare the complete documents.}
+    \end{itemize}
+    \end{samepage}
+  \Needspace{5\baselineskip}
+  \item \reviewercomment{Avoid manually named flattened snapshots, which can become stale.}
+    \response{We removed that recommendation. Section IV now describes fixed generated filenames and automatic regeneration.}
+  \Needspace{5\baselineskip}
+  \item \reviewercomment{Clarify where authors find the generated PDFs and how they inspect changes.}
+    \response{Section III explains that finished PDFs appear beside their manuscript sources. Section IV describes blue additions and red deletions.}
+\end{enumerate}
