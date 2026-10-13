@@ -1,0 +1,26 @@
+FICTIONAL EMAIL - demonstration only
+Subject: Revision requested for GUIDE-2026-001
+Dear Ada Author,
+
+Please revise "A Simple Sensor Averaging Method". The following comments
+are fictional and illustrate common plain-text email formats.
+
+EDITOR (unformatted paragraphs)
+Please submit a clean revised manuscript and a marked comparison against the previous submission.
+
+Keep the manuscript title, author names, and manuscript identifier consistent across the response letters.
+
+Provide a point-by-point response and explain where each requested change appears.
+
+REVIEWER 1 (numbered comments)
+1. Define N in the averaging equation and state which readings are included.
+2. Give the measurement units and show the calculation for readings 10, 12, and 14.
+3. Discuss the effect of an outlier and state the limits of the method.
+
+REVIEWER 2 (bulleted comments)
+- Correct the spelling of Beta's reference title and verify its publication year.
+- Replace Gamma's outdated checklist with a more recent limitations reference.
+- Explain how the revision history can be checked and provide a reference for the response-reporting convention.
+
+Please use manuscript ID GUIDE-2026-001 for this revision.
+The Fictional Editor

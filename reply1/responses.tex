@@ -1,10 +1,9 @@
-% Combined letter: reuse the same editor/reviewer content as individual letters.
+% Combined letter: REVIEWERS in the Makefile controls the generated inputs.
 \input{preamble.tex}
-\renewcommand{\ReplyAudience}{all the reviewers}
+\renewcommand{\ReplyAudience}{\CombinedReplyAudience}
 \begin{document}
 \maketitle
 \input{introduction.tex}
 \input{editor-comments.tex}
-\input{reviewer1-comments.tex}
-\input{reviewer2-comments.tex}
+\input{build/reviewer-inputs.tex}
 \end{document}

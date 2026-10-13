@@ -18,3 +18,7 @@ __pycache__/
 /original/*.synctex*
 /revised[0-9]*/*.synctex*
 /reply[0-9]*/*.synctex*
+
+# Live build/mutation locks are transient. Pristine reviewer baselines are tracked.
+**/.template-lock/
+**/.paper-template.*/

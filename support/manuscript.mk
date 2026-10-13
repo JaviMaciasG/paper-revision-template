@@ -1,10 +1,10 @@
 .DEFAULT_GOAL := all
-PYTHON ?= python3
+BASH_CMD ?= bash
 TYPE ?= manuscript
 BASELINE ?=
-TEMPLATE_BUILD := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-DRIVER = $(PYTHON) "$(TEMPLATE_BUILD)/template.py"
-.PHONY: all help check-tools zip clean distclean
+TEMPLATE_SUPPORT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+DRIVER = $(BASH_CMD) "$(TEMPLATE_SUPPORT)/build.sh"
+.PHONY: all paper help check-tools zip clean distclean
 ifeq ($(TYPE),revision)
 .PHONY: diff
 all: diff
@@ -14,10 +14,17 @@ else
 all:
 	@$(DRIVER) paper
 endif
+paper:
+	@$(DRIVER) paper
 help:
-	@printf '%s\n' '  all          Build paper$(if $(filter revision,$(TYPE)), and comparison) (default)' 	  '  help         Show applicable commands without TeX' 'PDFs: stage folder; auxiliaries: build/' 	  '  check-tools  Check required tools' 	  '  zip          Create a standalone manuscript source ZIP' 	  '  clean        Remove auxiliaries; retain final PDFs and ZIPs' 	  '  distclean    Remove all generated outputs';
+	@printf '%s\n' '  all          Build paper$(if $(filter revision,$(TYPE)), and comparison) (default)' \
+	 '  help         Show applicable commands without TeX' \
+	 '  paper        Build the manuscript only' '  check-tools  Check required tools' '  zip          Standalone manuscript source ZIP' \
+	 '  clean        Remove auxiliaries; retain PDFs and ZIPs' \
+	 '  distclean    Remove generated outputs; preserve source PDF figures' \
+	 'PDFs: stage folder; auxiliaries: build/';
 ifeq ($(TYPE),revision)
-	@printf '%s\n' '  diff         Build both versions and their text/bibliography comparison' 'Baseline: $(BASELINE)' 'Example: make diff';
+	@printf '%s\n' '  diff         Compare text and rendered bibliography' 'Baseline: $(BASELINE)';
 endif
 check-tools:
 	@$(DRIVER) check-tools $(if $(filter revision,$(TYPE)),--diff)

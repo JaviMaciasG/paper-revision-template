@@ -1,0 +1,18 @@
+% Loaded after the rest of the rebuttal preamble. Track executed citations,
+% not strings in comments or unused files. Each document starts with a false flag.
+\usepackage{etoolbox}
+\newif\ifReplyReferences
+\makeatletter
+\AtBeginDocument{%
+  \pretocmd{\@citex}{\global\ReplyReferencestrue}{}%
+    {\PackageError{reply-bibliography}{Cannot install citation tracking}{Use standard BibTeX citation commands.}}%
+  \pretocmd{\nocite}{\global\ReplyReferencestrue}{}%
+    {\PackageError{reply-bibliography}{Cannot install nocite tracking}{Use standard BibTeX citation commands.}}%
+}
+\makeatother
+\AtEndDocument{%
+  \ifReplyReferences
+    \bibliographystyle{IEEEtran}%
+    \bibliography{\ReplyBibliography}%
+  \fi
+}

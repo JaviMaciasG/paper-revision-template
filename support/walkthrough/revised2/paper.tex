@@ -1,0 +1,31 @@
+\documentclass[journal]{IEEEtran}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\title{A Simple Sensor Averaging Method}
+\author{Ada Author}
+\begin{document}
+\maketitle
+\begin{abstract}
+This fictional example illustrates an arithmetic mean of sensor readings.
+It is demonstration content, not a scientific finding.
+\end{abstract}
+\section{Introduction}
+We summarize readings using a simple mean, following fictional guides
+by Alpha~\cite{guide} and Beta~\cite{method}.
+\section{Method}\label{sec:method}
+We compute $\bar{x}=N^{-1}\sum_{i=1}^{N}x_i$.
+Here N is the positive number of readings included in one batch.
+N may differ between batches; we compute a separate mean for each batch.
+All readings in a batch measure the same quantity in the same units.
+\section{Results}\label{sec:results}
+The example temperature readings are 10, 12, and 14 degrees Celsius.
+Their mean is $(10+12+14)/3=12$ degrees Celsius.
+\section{Limitations}\label{sec:limitations}
+An outlier can shift the arithmetic mean. This example does not claim
+robustness to outliers, and no robust estimator is evaluated.
+We follow Delta's fictional limitations checklist~\cite{limits}.
+\section{Conclusion}
+The mean provides a compact summary of these example readings.
+\bibliographystyle{IEEEtran}
+\bibliography{paper}
+\end{document}

@@ -1,20 +1,37 @@
 .DEFAULT_GOAL := all
-PYTHON ?= python3
+BASH_CMD ?= bash
 MANUSCRIPTS := original $(sort $(wildcard revised[0-9]*))
 REPLIES := $(sort $(wildcard reply[0-9]*))
 STAGES := $(MANUSCRIPTS) $(REPLIES)
-.PHONY: all help check-tools init-project new-round zip clean distclean test container container-bundle bundle $(STAGES)
+.PHONY: all help check-tools init-project new-round add-reviewer remove-reviewer info-reviewer zip clean distclean test container container-bundle bundle $(STAGES)
 all: $(STAGES)
 $(STAGES):
-	+$(MAKE) -C $@ all
+	+$(MAKE) -C "$@" all
 help:
-	@printf '%s\n' 'IEEE manuscript and rebuttal template' 	  '  all             Build PDFs beside TeX sources; auxiliaries stay in build/ (default)' 	  '  help            Show commands; no TeX installation needed' 	  '  check-tools     Check compilation, comparison and bundle dependencies' 	  '  init-project    Create a minimal author project: make init-project DEST=../my-paper' '  new-round       Create round 1 or the next revisedN/replyN pair without overwriting' 	  '  bundle          Append the revision diff; COVER=1 adds an initial note page' 	  '  zip             Create standalone manuscript source archives' 	  '  clean           Remove auxiliary outputs, retaining final PDFs and ZIPs' 	  '  distclean       Remove all generated outputs' 	  '  test            Run workflow integration checks in temporary copies' 	  '  container       Build all documents in the pinned container' 	  '  container-bundle Build response bundles in the pinned container' 	  'Examples: make -C revised1 diff; make -C reply1 reviewer1; make -j4';
+	@printf '%s\n' 'IEEE manuscript and rebuttal template' \
+	 '  all              Build PDFs beside sources; auxiliaries stay in build/ (default)' \
+	 '  help             Show this help without TeX' \
+	 '  check-tools      Check Bash, archive, TeX, and PDF tools' \
+	 '  init-project     Create an author project: DEST=../my-paper' \
+	 '  new-round        Create the first or next revisedN/replyN pair' \
+	 '  add-reviewer     Add the next number: ROUND=N; optional REVIEWER=X' \
+	 '  remove-reviewer  Remove an untouched scaffold: ROUND=N REVIEWER=X' \
+	 '  info-reviewer    Report all rounds; optional ROUND=N' \
+	 '  bundle           Append diffs to letters; COVER=1 adds a note page' \
+	 '  zip              Create standalone manuscript source archives' \
+	 '  clean            Remove auxiliaries, retaining PDFs and ZIPs' \
+	 '  distclean        Remove generated outputs, preserving source figures and guards' \
+	 '  test             Run Bash integration tests, including the README walkthrough' \
+	 '  container        Build all documents in the container' \
+	 '  container-bundle Build bundles in the container; optional COVER=1';
 check-tools:
-	@$(PYTHON) support/template.py check-tools --merge
+	@$(BASH_CMD) support/build.sh check-tools --merge
 init-project:
-	@$(PYTHON) support/template.py init-project --dest "$(DEST)"
+	@$(BASH_CMD) support/project.sh init-project --dest "$(DEST)"
 new-round:
-	@$(PYTHON) support/template.py new-round
+	@$(BASH_CMD) support/project.sh new-round
+add-reviewer remove-reviewer info-reviewer:
+	@$(BASH_CMD) support/reviewers.sh $@ --round "$(ROUND)" --reviewer "$(REVIEWER)"
 zip:
 	@set -e; for stage in $(MANUSCRIPTS); do $(MAKE) -C "$$stage" zip; done
 bundle:
@@ -22,8 +39,8 @@ bundle:
 clean distclean:
 	@set -e; for stage in $(STAGES); do $(MAKE) -C "$$stage" $@; done
 test:
-	@$(PYTHON) -m unittest discover -s tests -v
+	@$(BASH_CMD) tests/run.sh
 container:
 	@sh support/container.sh all
 container-bundle:
-	@sh support/container.sh bundle
+	@sh support/container.sh bundle $(if $(filter undefined,$(origin COVER)),,COVER="$(COVER)")

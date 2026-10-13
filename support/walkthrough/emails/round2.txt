@@ -1,0 +1,25 @@
+FICTIONAL EMAIL - demonstration only
+Subject: Minor revision for GUIDE-2026-001-R2
+Dear Ada Author,
+
+Please address the following final clarifications for the same fictional paper.
+
+EDITOR (unformatted paragraphs)
+Keep the earlier submitted files intact and compare this revision against the first revised manuscript.
+
+Update the manuscript identifier to GUIDE-2026-001-R2 in the new response letters.
+
+Provide the final clean manuscript, comparison, and point-by-point responses.
+
+REVIEWER 1 (numbered comments)
+1. Clarify whether N may differ between measurement batches.
+2. State whether a separate mean is computed for each batch.
+3. Confirm that temperature units remain consistent within a batch.
+
+REVIEWER 2 (bulleted comments)
+- Explain why Beta's publication year is now 2025.
+- State explicitly that no robust estimator is evaluated in this example.
+- Retain the response-reporting reference and identify which files record this round.
+
+Please use manuscript ID GUIDE-2026-001-R2 for the final revision.
+The Fictional Editor
