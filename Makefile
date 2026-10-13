@@ -3,7 +3,7 @@ BASH_CMD ?= bash
 MANUSCRIPTS := original $(sort $(wildcard revised[0-9]*))
 REPLIES := $(sort $(wildcard reply[0-9]*))
 STAGES := $(MANUSCRIPTS) $(REPLIES)
-.PHONY: all help check-tools init-project new-round add-reviewer remove-reviewer info-reviewer zip clean distclean test container container-bundle bundle $(STAGES)
+.PHONY: all help check-tools init-project new-round add-reviewer remove-reviewer info-reviewer zip clean distclean test bundle $(STAGES)
 all: $(STAGES)
 $(STAGES):
 	+$(MAKE) -C "$@" all
@@ -21,9 +21,7 @@ help:
 	 '  zip              Create standalone manuscript source archives' \
 	 '  clean            Remove auxiliaries, retaining PDFs and ZIPs' \
 	 '  distclean        Remove generated outputs, preserving source figures and guards' \
-	 '  test             Run Bash integration tests, including the README walkthrough' \
-	 '  container        Build all documents in the container' \
-	 '  container-bundle Build bundles in the container; optional COVER=1';
+	 '  test             Run Bash integration tests, including the README walkthrough';
 check-tools:
 	@$(BASH_CMD) support/build.sh check-tools --merge
 init-project:
@@ -40,7 +38,3 @@ clean distclean:
 	@set -e; for stage in $(STAGES); do $(MAKE) -C "$$stage" $@; done
 test:
 	@$(BASH_CMD) tests/run.sh
-container:
-	@sh support/container.sh all
-container-bundle:
-	@sh support/container.sh bundle $(if $(filter undefined,$(origin COVER)),,COVER="$(COVER)")

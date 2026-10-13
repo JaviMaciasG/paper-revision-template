@@ -1,1 +1,0 @@
-ghcr.io/xu-cheng/texlive-full:20261001@sha256:0768bec1654eb3692aace2faca186d190f86d5f510ae20d71a5145d67aff081c

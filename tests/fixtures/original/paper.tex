@@ -36,7 +36,6 @@ remain local to that stage. Shared build helpers live at the repository root.
 Install GNU Make, Bash, and TeX Live with IEEEtran, latexmk, latexpand, and latexdiff.
 Use pdfunite for optional PDF bundles; Ghostscript is supported as a fallback.
 Run \texttt{make check-tools} before the first build.
-Alternatively, \texttt{make container} runs the same build in a pinned Linux container.
 Run \texttt{make help} at the root or in a stage directory to discover its commands.
 Root \texttt{make} builds all stages; \texttt{make -C original} builds the first manuscript.
 PDFs appear beside manuscript sources; auxiliaries stay in \texttt{build/}.

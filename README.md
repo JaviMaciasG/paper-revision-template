@@ -28,19 +28,11 @@ Submit `original/paper.pdf`, then treat the sources in `original/` as the submit
 
 ## Requirements and reproducible builds
 
-Use GNU Make, Bash 3.2 or newer, and ordinary Unix utilities on Linux/macOS. Install TeX Live with pdfLaTeX, BibTeX, IEEEtran, latexmk, latexpand, and latexdiff. Source archives require `zip` and `unzip`; bundles require either Poppler's `pdfunite` or Ghostscript (`gs`). The integration tests also use `pdfinfo`/`pdftotext` when available, with Ghostscript fallbacks. Native Windows users can use WSL or the Linux container. No Python interpreter, pip packages, or Python helper scripts are required.
+Use GNU Make, Bash 3.2 or newer, and ordinary Unix utilities on Linux/macOS. Install TeX Live with pdfLaTeX, BibTeX, IEEEtran, latexmk, latexpand, and latexdiff. Source archives require `zip` and `unzip`; bundles require either Poppler's `pdfunite` or Ghostscript (`gs`). The integration tests also use `pdfinfo`/`pdftotext` when available, with Ghostscript fallbacks. Native Windows users can use WSL. No Python interpreter, pip packages, or Python helper scripts are required.
 
 `make check-tools` checks the tools; `make help` works without TeX or Bash. Every stage has its own help target. Builds use latexmk's dependency tracking and project-owned configuration, ignoring personal latexmk configuration. PDFs sit beside their TeX sources; auxiliaries, expanded sources, and generated bibliography/configuration files stay in each stage's `build/`. An unchanged comparison does not rebuild its PDF. Sources, citations, and bibliography dependencies are followed automatically. Undefined citations/references and missing bibliography entries fail the build.
 
-The container base is pinned by digest in `support/container-image.txt`. A small derivative `support/Dockerfile` installs a pinned ZIP package ([Alpine package record](https://pkgs.alpinelinux.org/package/v3.22/main/x86_64/zip)); all other TeX/PDF tools come from the base image. Docker needs a working daemon and network access for the first build. The same wrapper runs in CI:
-
-```bash
-make container
-make container-bundle COVER=1
-sh support/container.sh check-tools all bundle zip test
-```
-
-The container writes files as your user. A pinned toolchain improves reproducibility; PDF timestamps can still vary across clean builds. Byte-for-byte reproducible PDFs across machines are not promised.
+GitHub Actions installs the build tools directly on its Ubuntu runner and executes the same Make targets used locally. Tool versions can differ between installations, and PDF timestamps can vary across clean builds. Byte-for-byte reproducible PDFs across machines are not promised.
 
 ## Layout and everyday commands
 

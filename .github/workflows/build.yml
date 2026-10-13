@@ -7,8 +7,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and test with the pinned toolchain
-        run: sh support/container.sh check-tools all bundle zip test
+      - name: Install document build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            bash make zip unzip latexmk latexdiff \
+            texlive-latex-extra texlive-publishers texlive-fonts-recommended \
+            texlive-extra-utils poppler-utils ghostscript
+      - name: Build and test documents
+        run: make check-tools all bundle zip test
       - uses: actions/upload-artifact@v4
         with:
           name: manuscripts-and-rebuttals
