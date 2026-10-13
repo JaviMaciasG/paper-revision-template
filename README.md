@@ -37,7 +37,49 @@ Run `make check-tools` from the clone to check your installation. `make help` wo
 
 ### Template clone versus publication project
 
-The clone contains a populated demonstration. You can build it with `make`, `make bundle`, or `make zip`. Source-changing management targets are disabled there to protect the example. Use `init-project` to create an independent, editable publication project. Details are in [protection and cleanup](#protection-cleanup-and-interrupted-operations).
+The clone contains a populated demonstration, described below. Source-changing management targets are disabled there to protect the example. Use `init-project` to create an independent, editable publication project. Details are in [protection and cleanup](#protection-cleanup-and-interrupted-operations).
+
+### Explore the supplied example
+
+The main repository already contains sample sources for a submitted paper, its first revision, and completed rebuttal letters for two reviewers and the editor. You can build these files immediately after installing the required tools:
+
+| Folder | Sample source files | Purpose |
+|---|---|---|
+| `original/` | `paper.tex`, `paper.bib`, `sections/comparisons.tex`, `figures/workflow.tex` | The original submitted manuscript, with an included section and figure |
+| `revised1/` | `paper.tex`, `paper.bib`, and corresponding included files | The revised manuscript, demonstrating text changes and bibliography corrections, additions, and deletions |
+| `reply1/` | `metadata.tex`, `responses.tex`, `editor.tex`, `reviewer1.tex`, `reviewer2.tex`, and the matching `*-comments.tex` files | Combined, editor, and individual reviewer responses |
+
+Each stage has a `Makefile` that uses the shared build rules in `support/`. Keep these files along with the document sources.
+
+In `reply1/`, each `reviewerX.tex` is a wrapper that includes `reviewerX-comments.tex`. The combined `responses.tex` includes those same comment/answer files, together with the editor's responses. Edit the comments files to keep the combined and individual letters consistent. The shared `preamble.tex`, `commands.tex`, and `introduction.tex` provide the layout, formatting, and opening section; `metadata.tex` supplies the paper title, authors, and manuscript ID. The letters use `revised1/paper.bib` for any cited references.
+
+Run the root commands from the repository root. To use the folder-local commands, first enter the indicated folder—for example, run `cd original`—then run the command shown. Run `cd ..` to return to the root before entering another stage. Output paths below are relative to the repository root.
+
+| From the repository root | Folder | Command inside that folder | Output |
+|---|---|---|---|
+| `make -C original paper` | `original/` | `make paper` | `original/paper.pdf` |
+| `make -C revised1 paper` | `revised1/` | `make paper` | `revised1/paper.pdf` |
+| `make -C revised1 diff` | `revised1/` | `make diff` | `revised1/paper-diff.pdf` |
+| `make -C reply1 responses` | `reply1/` | `make responses` | `reply1/responses.pdf`, the joint editor/reviewer letter |
+| `make -C reply1 editor` | `reply1/` | `make editor` | `reply1/editor.pdf` |
+| `make -C reply1 reviewer1` | `reply1/` | `make reviewer1` | `reply1/reviewer1.pdf` |
+| `make -C reply1 reviewer2` | `reply1/` | `make reviewer2` | `reply1/reviewer2.pdf` |
+| `make -C reply1 bundle` | `reply1/` | `make bundle` | The four letters with the comparison appended, listed below |
+| `make -C original zip` | `original/` | `make zip` | `original/paper-original.zip` |
+| `make -C revised1 zip` | `revised1/` | `make zip` | `revised1/paper-revised1.zip` |
+
+The standalone marked comparison, `revised1/paper-diff.pdf`, shows changes against `original/paper.tex`, including changes in included sections and rendered bibliography entries. `make bundle` integrates that same comparison with each response document and produces:
+
+- `reply1/responses-with-diff.pdf`: joint responses followed by the comparison.
+- `reply1/editor-with-diff.pdf`: editor responses followed by the comparison.
+- `reply1/reviewer1-with-diff.pdf`: reviewer 1 responses followed by the comparison.
+- `reply1/reviewer2-with-diff.pdf`: reviewer 2 responses followed by the comparison.
+
+Use `make -C reply1 bundle COVER=1`, or `make bundle COVER=1` inside `reply1/`, to prepend an explanatory cover. The order is then cover, response letter, comparison. The plain response PDFs remain separate.
+
+For shortcuts, run `make` at the root to build both manuscripts, the comparison, and all plain response letters; `make bundle` builds all response bundles, and `make zip` builds both manuscript source archives. PDFs and ZIPs appear in the stage folders; auxiliary files stay under `build/`.
+
+For a complete publication exercise, follow [HOWTO.md](HOWTO.md). That separate example starts with reviewers 1, 2, and 3, then changes to reviewers 1, 3, and 4 in the second round. To start your own manuscript, create a publication project as described next.
 
 ### Create your publication project
 
@@ -154,7 +196,7 @@ make -C reply1 bundle
 make -C revised1 zip
 ```
 
-Inspect `revised1/paper.pdf` (clean manuscript), `revised1/paper-diff.pdf` (marked comparison), and the combined, editor, and individual letters in `reply1/`. Bundles append the comparison to each letter. Submit the files required by the journal; the source archive is `revised1/paper.zip`. Keep submitted stages unchanged and make further edits in the next round.
+Inspect `revised1/paper.pdf` (clean manuscript), `revised1/paper-diff.pdf` (marked comparison), and the combined, editor, and individual letters in `reply1/`. Bundles append the comparison to each letter. Submit the files required by the journal; the source archive is `revised1/paper-revised1.zip`. Keep submitted stages unchanged and make further edits in the next round.
 
 For individual build targets, see the [command reference](#make-targets). For optional explanatory covers, see [submission covers](#optional-covers-for-submission-bundles).
 
@@ -250,7 +292,7 @@ support/                     Shared Make rules, Bash helpers, letter scaffolds
 tests/                       Bash integration tests and independent fixtures
 ```
 
-Each `revisedN/Makefile` declares its `BASELINE` and `replyN/Makefile` its `REVISION`. The defaults compare `revised1` with `original`, then `revisedN` with `revised(N-1)`. Keep `paper.tex`/`paper.bib` in every manuscript stage; this avoids selecting comparison files by ad hoc names. The comparison is always `revisedN/paper-diff.pdf`. Generated names, including stage-root `paper.zip`, are reserved for build outputs; place PDF figures in a subdirectory such as `figures/`.
+Each `revisedN/Makefile` declares its `BASELINE` and `replyN/Makefile` its `REVISION`. The defaults compare `revised1` with `original`, then `revisedN` with `revised(N-1)`. Keep `paper.tex`/`paper.bib` in every manuscript stage; this avoids selecting comparison files by ad hoc names. The comparison is always `revisedN/paper-diff.pdf`. Generated names, including stage-root `paper-<folder>.zip`, are reserved for build outputs; place PDF figures in a subdirectory such as `figures/`.
 
 ### Make targets
 
@@ -293,11 +335,11 @@ Latexmk removes known generated files from its source dependency export. The exi
 
 Only dependencies used by the active build are selected. Unused assets, unreferenced notes, empty directories, and inactive conditional inputs are omitted; copy such files manually if you need them for later edits. Selection does not depend on Git tracking or `.gitignore`. Required dependencies can be copied even when their names match an ignore rule. Keep manuscript dependencies stage-local and avoid reserved output names for source assets.
 
-Manuscript source ZIPs use the same dependency collector. The ignore rules include applicable LaTeX intermediates, package caches, editor backups, and operating-system metadata adapted from the thesis template. Figure/source formats such as `.pdf`, `.eps`, `.svg`, `.tikz`, `.ist`, `.xdy`, `.mp`, and `.mf` remain trackable. Ignore rules do not grant permission to delete files; `clean` and `distclean` retain their existing source-preserving behavior.
+Manuscript source ZIPs use the same dependency collector. Archives are named `paper-<folder>.zip`, for example `original/paper-original.zip` and `revised2/paper-revised2.zip`. The ignore rules include applicable LaTeX intermediates, package caches, editor backups, and operating-system metadata adapted from the thesis template. Figure/source formats such as `.pdf`, `.eps`, `.svg`, `.tikz`, `.ist`, `.xdy`, `.mp`, and `.mf` remain trackable. Ignore rules do not grant permission to delete files; `clean` and `distclean` retain their existing source-preserving behavior.
 
 ### Build behavior and reproducibility
 
-`make check-tools` checks the tools; `make help` works without TeX or Bash. Every stage has its own help target. Builds use latexmk's dependency tracking and project-owned configuration, ignoring personal latexmk configuration. PDFs and manuscript source ZIPs (`paper.zip`) sit beside their TeX sources; auxiliaries, expanded sources, and generated bibliography/configuration files stay in each stage's `build/`. An unchanged comparison does not rebuild its PDF. Sources, citations, and bibliography dependencies are followed automatically. Undefined citations/references and missing bibliography entries fail the build.
+`make check-tools` checks the tools; `make help` works without TeX or Bash. Every stage has its own help target. Builds use latexmk's dependency tracking and project-owned configuration, ignoring personal latexmk configuration. PDFs and manuscript source ZIPs (`paper-<folder>.zip`) sit beside their TeX sources; auxiliaries, expanded sources, and generated bibliography/configuration files stay in each stage's `build/`. An unchanged comparison does not rebuild its PDF. Sources, citations, and bibliography dependencies are followed automatically. Undefined citations/references and missing bibliography entries fail the build.
 
 Tool versions can differ between installations, and PDF timestamps can vary across clean builds. Byte-for-byte reproducible PDFs across machines are not promised.
 

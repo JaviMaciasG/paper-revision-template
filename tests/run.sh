@@ -43,6 +43,7 @@ fresh_author() {
     ok make init-project "DEST=$author"
     cd -- "$author"
     assert_has Makefile 'PROJECT_ROLE := publication'
+    assert_has README.md '# Manuscript project'
     assert_file HOWTO.md
     cmp -s HOWTO.md "$TEST_SOURCE_ROOT/HOWTO.md" || fail 'Initialized project lost the guided example'
 }
@@ -116,7 +117,7 @@ test_template_protection() {
     ok make -j4
     ok make bundle; ok make zip
     ok make clean
-    assert_file original/paper.pdf; assert_file revised1/paper.zip
+    assert_file original/paper.pdf; assert_file revised1/paper-revised1.zip
     ok make distclean
     assert_absent original/paper.pdf; assert_absent revised1/build
     copy_sources "$project" "$CASE_DIR/protected-sources-after"
@@ -183,7 +184,7 @@ TEX
     ok make -C revised1 diff
     ok make -C original zip
     mkdir "$CASE_DIR/dependency-archive"
-    (cd "$CASE_DIR/dependency-archive" && unzip -q "$author/original/paper.zip" && make > "$CASE_DIR/dependency-archive.log" 2>&1) || fail 'Dependency archive did not compile independently'
+    (cd "$CASE_DIR/dependency-archive" && unzip -q "$author/original/paper-original.zip" && make > "$CASE_DIR/dependency-archive.log" 2>&1) || fail 'Dependency archive did not compile independently'
     assert_file "$CASE_DIR/dependency-archive/support/dependencies.sh"
     assert_file "$CASE_DIR/dependency-archive/styles/localrefs.bst"
     assert_file "$CASE_DIR/dependency-archive/figures/sensor plot.pdf"
@@ -268,7 +269,7 @@ SH
 test_ignore_rules() {
     command -v git >/dev/null 2>&1 || return 0
     ok git init -q
-    for file in original/paper.aux original/paper.bcf original/paper.ind original/paper.gls original/paper.nav original/paper.synctex.gz original/paper.synctex.gz\(busy\) original/.notes.tex.swp original/.DS_Store original/Thumbs.db original/paper.bak original/paper.pdf original/paper.zip revised1/paper.zip .removed-rounds/round2-example/revised2/paper.zip .removed-rounds/round2-example/revised2/paper.pdf .removed-rounds/round2-example/reply2/reviewer1.pdf; do
+    for file in original/paper.aux original/paper.bcf original/paper.ind original/paper.gls original/paper.nav original/paper.synctex.gz original/paper.synctex.gz\(busy\) original/.notes.tex.swp original/.DS_Store original/Thumbs.db original/paper.bak original/paper.pdf original/paper-original.zip revised1/paper-revised1.zip .removed-rounds/round2-example/revised2/paper-revised2.zip .removed-rounds/round2-example/revised2/paper.pdf .removed-rounds/round2-example/reply2/reviewer1.pdf; do
         ok git -c core.excludesFile=/dev/null check-ignore -q "$file"
     done
     for extension in tex bib bst sty cls pdf eps svg png jpg tikz ist xdy mp mf gnuplot table zip; do
@@ -459,12 +460,14 @@ test_build_incremental_archives() {
     assert_has revised1/build/paper-expanded.tex 'A revised automated build checklist'
     # Relocate obsolete generated archives only after the replacement succeeds.
     printf 'Legacy generated archive\n' > revised1/build/paper.zip
+    printf 'Legacy stage-root archive\n' > revised1/paper.zip
     ok make zip
     for stage in original revised1; do
-        assert_file "$stage/paper.zip"
+        assert_file "$stage/paper-$stage.zip"
         assert_absent "$stage/build/paper.zip"
+        assert_absent "$stage/paper.zip"
         mkdir -- "$CASE_DIR/extracted-$stage"
-        (cd -- "$CASE_DIR/extracted-$stage" && unzip -q "$project/$stage/paper.zip" && make > "$CASE_DIR/extraction.log" 2>&1) || fail 'Archive did not compile independently'
+        (cd -- "$CASE_DIR/extracted-$stage" && unzip -q "$project/$stage/paper-$stage.zip" && make > "$CASE_DIR/extraction.log" 2>&1) || fail 'Archive did not compile independently'
         assert_file "$CASE_DIR/extracted-$stage/paper.pdf"
         assert_file "$CASE_DIR/extracted-$stage/support/build.sh"
     done
@@ -472,11 +475,11 @@ test_build_incremental_archives() {
     printf 'Nested PDF figure source\n' > revised1/figures/paper.pdf
     printf 'Source ZIP asset\n' > revised1/figures/paper.zip
     ok make clean
-    assert_file revised1/paper-diff.pdf; assert_file revised1/paper.zip
+    assert_file revised1/paper-diff.pdf; assert_file revised1/paper-revised1.zip
     assert_absent revised1/build/paper.aux
     ok make distclean
     assert_absent revised1/build; assert_absent reply1/responses-with-diff.pdf
-    assert_absent original/paper.zip; assert_absent revised1/paper.zip
+    assert_absent original/paper-original.zip; assert_absent revised1/paper-revised1.zip
     assert_file revised1/figures/paper.zip
     assert_file revised1/illustration.pdf; assert_file revised1/figures/paper.pdf
     ok make -C original

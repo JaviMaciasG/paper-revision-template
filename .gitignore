@@ -107,8 +107,11 @@ Thumbs.db
 
 # Reserved manuscript source archives; other ZIP assets remain trackable.
 /original/paper.zip
+/original/paper-original.zip
 /revised[0-9]*/paper.zip
+/revised[0-9]*/paper-revised[0-9]*.zip
 /.removed-rounds/round[0-9]*-*/revised[0-9]*/paper.zip
+/.removed-rounds/round[0-9]*-*/revised[0-9]*/paper-revised[0-9]*.zip
 
 # Reserved stage-root PDF names. PDF figure assets remain trackable.
 /original/paper.pdf

@@ -19,7 +19,7 @@ paper:
 help:
 	@printf '%s\n' '  all          Build paper$(if $(filter revision,$(TYPE)), and comparison) (default)' \
 	 '  help         Show applicable commands without TeX' \
-	 '  paper        Build the manuscript only' '  check-tools  Check required tools' '  zip          Standalone sources in paper.zip beside paper.tex' \
+	 '  paper        Build the manuscript only' '  check-tools  Check required tools' '  zip          Standalone sources in paper-<folder>.zip beside paper.tex' \
 	 '  clean        Remove auxiliaries; retain PDFs and ZIPs' \
 	 '  distclean    Remove generated outputs; preserve source PDF figures' \
 	 'PDFs and source ZIP: stage folder; auxiliaries: build/';

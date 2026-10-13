@@ -107,6 +107,12 @@ generated_pdf() {
     fi
     return 1
 }
+generated_archive() {
+    local directory=$1 relative=$2
+    [ -f "$directory/paper.tex" ] || return 1
+    case "$relative" in paper.zip|"paper-${directory##*/}.zip") return 0;; esac
+    return 1
+}
 copy_sources() {
     local source=$1 destination=$2 file relative
     mkdir -p -- "$destination"
@@ -117,7 +123,7 @@ copy_sources() {
         case "$relative" in *.aux|*.log|*.bbl|*.blg|*.fls|*.fdb_latexmk|*.synctex|*.synctex.gz|*.pyc|*~) continue;; esac
         if [ -f "$file" ]; then
             generated_pdf "$(dirname -- "$file")" "$(basename -- "$file")" && continue
-            if [ "$(basename -- "$file")" = paper.zip ] && [ -f "$(dirname -- "$file")/paper.tex" ]; then continue; fi
+            generated_archive "$(dirname -- "$file")" "$(basename -- "$file")" && continue
             mkdir -p -- "$destination/$(dirname -- "$relative")"
             cp -p -- "$file" "$destination/$relative"
         fi
