@@ -1,0 +1,21 @@
+name: Documents
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  documents:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test with the pinned toolchain
+        run: sh support/container.sh check-tools all bundle zip test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manuscripts-and-rebuttals
+          path: |
+            original/build/*.pdf
+            revised*/build/*.pdf
+            reply*/build/*.pdf
+            original/build/*.zip
+            revised*/build/*.zip
+          if-no-files-found: error

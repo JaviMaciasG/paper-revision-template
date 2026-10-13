@@ -1,0 +1,65 @@
+\documentclass[journal]{IEEEtran}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{cite}
+\title{A Practical Template for Manuscripts and Rebuttals}
+\author{Template Author}
+\begin{document}
+\maketitle
+\begin{abstract}
+This paper is a working manual for an IEEE manuscript and rebuttal template.
+It explains numbered submission stages, dependency-aware builds, and point-by-point reviewer responses.
+The example produces submission-ready documents.
+\end{abstract}
+\begin{IEEEkeywords}
+LaTeX, manuscript preparation, peer review, reproducible builds.
+\end{IEEEkeywords}
+\section{Introduction}
+Keep each submission in a separate directory, use Git to record its history,
+and build documents through Make.
+The references in this manual are fictional examples, not research claims.
+The introductory workflow follows the example guide by Alpha~\cite{guide}.
+\section{Directory Structure}
+Use \texttt{original} for the first submission, \texttt{revised1} and \texttt{reply1}
+for the first review round, then \texttt{revised2} and \texttt{reply2}, and so on.
+Every manuscript has \texttt{paper.tex} and \texttt{paper.bib}; section inputs and figures
+remain local to that stage. Shared build helpers live at the repository root.
+\begin{figure}[!b]
+\centering
+\input{figures/workflow.tex}
+\caption{Each review round connects a revised manuscript to its response letters.}
+\label{fig:workflow}
+\end{figure}
+\section{Installation and Builds}
+Install GNU Make, Python 3, and TeX Live with IEEEtran, latexmk, latexpand, and latexdiff.
+Use pdfunite for optional PDF bundles; Ghostscript is supported as a fallback.
+Run \texttt{make check-tools} before the first build.
+Alternatively, \texttt{make container} runs the same build in a pinned Linux container.
+Run \texttt{make help} at the root or in a stage directory to discover its commands.
+Root \texttt{make} builds all stages; \texttt{make -C original} builds the first manuscript.
+All output is placed in ignored \texttt{build/} subdirectories.
+\input{sections/comparisons.tex}
+\section{Responding to Reviewers}
+Edit \texttt{reply1/metadata.tex} to set the title, authors, and submission identifier.
+Record each comment and answer in the corresponding reviewer file.
+Individual and combined letters reuse the same answers.
+Use \texttt{make -C reply1} to build the letters, or \texttt{make -C reply1 bundle}
+to append the comparison to each letter.
+\section{Adding a Review Round}
+Run \texttt{make new-round} from the repository root.
+This copies manuscript sources into the next revision, sets its baseline,
+and creates fresh response placeholders. It skips generated files and refuses overwrites.
+Root commands discover new stages automatically.
+\section{Submission and Preservation}
+Use \texttt{make -C revised1 zip} to create a standalone source archive.
+Extract and compile the archive before uploading it.
+Freeze submitted sources and tag them in Git, for example \texttt{submitted-revised1}.
+Use \texttt{make clean} to remove auxiliaries while retaining PDFs and ZIPs;
+\texttt{make distclean} removes all generated outputs.
+\section{Conclusion}
+Separate stages make the publication history easy to inspect.
+Consistent commands and automatic baseline selection reduce the manual work needed to prepare each submission.
+\bibliographystyle{IEEEtran}
+\bibliography{paper}
+\end{document}

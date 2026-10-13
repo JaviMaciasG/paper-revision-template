@@ -1,0 +1,4 @@
+# Generated outputs live here; PDF source figures remain trackable.
+**/build/
+__pycache__/
+*.pyc

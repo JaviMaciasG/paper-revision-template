@@ -1,0 +1,13 @@
+\section{Comparing Manuscripts}
+Every revision explicitly names its baseline in its Makefile.
+For the first round this is \texttt{../original}; later rounds use the preceding revision.
+Run \texttt{make -C revised1 diff} to build both manuscripts and their comparison.
+The build flattens included source files and inserts each compiled bibliography
+before marking changes. Blue underlining indicates additions and red strikeout indicates deletions.
+This method follows the illustrative bibliography guide by Beta~\cite{bibliography}.
+Generated comparison inputs always use \texttt{paper-expanded.tex}; the parent stage directory
+identifies the version. Never rename these files or use them as manually maintained baselines.
+A fictional automated-build checklist by Delta~\cite{automation} illustrates this approach.
+Bibliography metadata corrections retain their citation keys. Removing a reference also removes
+its citation from the manuscript; new references receive new keys.
+The diff build regenerates its inputs automatically, including bibliography changes.
