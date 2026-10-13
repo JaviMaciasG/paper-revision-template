@@ -35,6 +35,21 @@ Use GNU Make, Bash 3.2 or newer, and ordinary Unix utilities on Linux/macOS. Ins
 
 Run `make check-tools` from the clone to check your installation. `make help` works without TeX; each stage also has a help target.
 
+### Build PDF copies of the guides
+
+To read or share this README and the guided example as PDFs, install Pandoc in addition to the existing latexmk/pdfLaTeX tools and TeX Live packages (`fvextra`, `xurl`, `xcolor`, `lmodern`, `booktabs`, `longtable`, `hyperref`, `etoolbox`, `needspace`, and `tcolorbox`). These are normally supplied by the LaTeX-extra and fonts-recommended packages. No separate syntax-highlighting executable or Python interpreter is needed.
+
+To generate the PDF guides, run the following Bash commands from the project root:
+
+```bash
+make docs
+# Or build only one guide:
+make README.pdf
+make HOWTO.pdf
+```
+
+The outputs are `README.pdf` and `HOWTO.pdf` at the root. They have numbered sections, clickable contents and bookmarks, colored Bash/LaTeX/BibTeX code on very light blue-gray backgrounds, and wrapped code lines. Both PDFs show Javier Macias-Guarasa as their author, including in PDF metadata. The Markdown titles remain unnumbered in the PDFs. Generated LaTeX and auxiliaries stay in `build/docs/`. `make clean` retains the PDFs; `make distclean` removes them. These commands also work in initialized publication projects. Normal manuscript builds do not require Pandoc.
+
 ### Template clone versus publication project
 
 The clone contains a populated demonstration, described below. Source-changing management targets are disabled there to protect the example. Use `init-project` to create an independent, editable publication project. Details are in [protection and cleanup](#protection-cleanup-and-interrupted-operations).
@@ -83,7 +98,9 @@ For a complete publication exercise, follow [HOWTO.md](HOWTO.md). That separate 
 
 ### Create your publication project
 
-Clone this repository, then create an author project outside the clone:
+Clone this repository, then create an author project outside the clone.
+
+To initialize your publication project, run the following Bash commands:
 
 ```bash
 make init-project DEST=../my-paper
@@ -99,6 +116,8 @@ The new project contains the build system, documentation, examples, and a minima
 
 Replace `original/paper.tex` and `original/paper.bib` with your real manuscript and bibliography. Put included TeX files, figures, and other dependencies inside `original/`; avoid dependencies outside the project. Update the title and authors, and use your publication's required IEEE options and packages.
 
+To compile and package the original manuscript, and optionally initialize Git, run the following Bash commands:
+
 ```bash
 make check-tools
 make original
@@ -113,7 +132,9 @@ Submit `original/paper.pdf`, then treat the sources in `original/` as the submit
 
 ### Start the first revision
 
-From an initialized publication project's root, after receiving the first decision:
+From an initialized publication project's root, after receiving the first decision.
+
+To create the first review round, run the following Bash command from the publication root:
 
 ```bash
 make new-round
@@ -124,6 +145,8 @@ This builds `original/paper.tex`, copies its manuscript dependencies into `revis
 ### Set the reviewers for this round
 
 There is no fixed reviewer limit. New author projects start round 1 with reviewers 1 and 2; add or remove them to match the decision. The editor is always separate and does not count as a reviewer. The `REVIEWERS` list in the round's Makefile is authoritative. Numbers remain stable when another reviewer is removed; gaps are allowed. Prefer the targets to manual changes so membership, generated inputs, sources, and safety records remain consistent.
+
+To add, remove, or inspect reviewers, use the following Bash commands from the indicated folders:
 
 ```bash
 # From the project root:
@@ -164,6 +187,8 @@ The document title follows the original repository's wording:
 
 Individual letters use “reviewer X”; the editor letter and editor-only combined letter address “the editor”. Section 1 retains the original introduction content. Subsequent sections are “Responses to the Editor comments” and “Responses to the comments of reviewer X”. The original 12-point A4 layout, 25 mm margins, italic reviewer comments, and fully bold replies with their spacing are kept in `preamble.tex` and `commands.tex`.
 
+The following LaTeX example shows numbered reviewer comments and bulleted reply details:
+
 ```tex
 \section{Responses to the comments of reviewer 1}
 \begin{enumerate}
@@ -188,7 +213,9 @@ Manuscripts retain their own normal `\bibliographystyle{IEEEtran}` and `\bibliog
 
 ### Build, inspect, and submit the revision
 
-From the publication root, build the manuscripts, comparisons, and all response letters:
+From the publication root, build the manuscripts, comparisons, and all response letters.
+
+To build the revised manuscript, response letters, comparison, and source archive, run the following Bash commands:
 
 ```bash
 make
@@ -202,7 +229,9 @@ For individual build targets, see the [command reference](#make-targets). For op
 
 ### Start subsequent revisions
 
-After submitting round 1 and receiving the next decision, run the **same** root command:
+After submitting round 1 and receiving the next decision, run the **same** root command.
+
+To start the next review round, run the following Bash command from the publication root:
 
 ```bash
 make new-round
@@ -220,7 +249,9 @@ Follow [the complete guided example in HOWTO.md](HOWTO.md) to initialize a ficti
 
 ### Remove and restore a round
 
-From a publication project's **root**, remove the latest round from the active workflow without discarding its contents:
+From a publication project's **root**, remove the latest round from the active workflow without discarding its contents.
+
+To archive the latest active round, run the following Bash command:
 
 ```bash
 make remove-round ROUND=2
@@ -230,13 +261,17 @@ The complete `revised2/` and `reply2/` folders move into a unique directory such
 
 Both targets require an explicit positive `ROUND`; they are unavailable in the protected template clone and are root-only, including direct helper calls. Removal requires the latest complete, consistently configured pair and refuses other active stages that refer to it through `BASELINE` or `REVISION`. Earlier rounds and `original/` remain intact. Source-changing commands must run separately from builds; the helpers wait for existing stage locks before transferring files.
 
-Restore the next round after the highest active round:
+Restore the next round after the highest active round.
+
+To restore the next round, run the following Bash command:
 
 ```bash
 make restore-round ROUND=2
 ```
 
-When exactly one archive matches, it is selected automatically. Several archived attempts require an explicit choice; the error lists their names:
+When exactly one archive matches, it is selected automatically. Several archived attempts require an explicit choice; the error lists their names.
+
+To list archived attempts and select one to restore, use the following Bash commands:
 
 ```bash
 ls -d .removed-rounds/round2-*
@@ -255,7 +290,9 @@ After completing the guided publication, follow [the optional removal and restor
 
 ### Editor-only revisions
 
-This is a separate branch of the workflow, not a step to run in the completed guided project. In a fresh author project, before filling any reviewer files:
+This is a separate branch of the workflow, not a step to run in the completed guided project. In a fresh author project, before filling any reviewer files.
+
+To create an editor-only round, remove the untouched reviewer scaffolds with the following Bash commands:
 
 ```bash
 make new-round
@@ -271,7 +308,9 @@ The combined document addresses the editor, and subsequent rounds retain zero re
 
 ### Optional covers for submission bundles
 
-A bundle normally contains the letter followed by the matching manuscript comparison. To add an explanatory cover before each letter:
+A bundle normally contains the letter followed by the matching manuscript comparison. To add an explanatory cover before each letter.
+
+To prepend covers to the response bundles, run the following Bash command:
 
 ```bash
 make -C reply1 bundle COVER=1
@@ -282,6 +321,8 @@ Set `COVER := 1` in the reply Makefile for a persistent default; a command-line 
 ## Command and file reference
 
 ### Folder layout and file roles
+
+The following plain-text overview shows the project folder layout:
 
 ```text
 original/                    Submitted manuscript: paper.tex, paper.bib
@@ -299,6 +340,8 @@ Each `revisedN/Makefile` declares its `BASELINE` and `replyN/Makefile` its `REVI
 | Command | Result |
 | --- | --- |
 | `make help` | Available targets and options |
+| `make docs` | Numbered, syntax-highlighted README.pdf and HOWTO.pdf |
+| `make README.pdf` or `make HOWTO.pdf` | Build one guide PDF |
 | `make check-tools` | Check required build tools |
 | `make init-project DEST=../my-paper` | Create an independent publication project |
 | `make new-round` | Create the next manuscript and response stage |
@@ -365,4 +408,4 @@ The tradeoffs are extra storage, duplicated files, and the risk of editing an ol
 
 ## Validation and license
 
-`make test` exercises builds with Python invocation blocked, paths containing spaces, dependency-based copying of nested inputs and local styles, refreshed dependency graphs, preservation of the shared bibliography, omission of unused assets, source-safe ignore rules, incremental text/bibliography changes, citation-free and citing letters, project-role and reviewer protections, round archiving/restoration and failed-transfer recovery, editor-only rounds, covers and metadata, independent ZIP extraction, cleanup, and both complete HOWTO review rounds. HOWTO code/assets and received-comment wording are checked against the supplied walkthrough files. The tests also run from an initialized author project. The template and fictional examples are distributed under the MIT license; IEEEtran remains subject to its own license.
+`make test` checks optional documentation rendering when Pandoc is installed (numbering, highlighting, incremental builds, missing-tool errors, and cleanup), then exercises manuscript builds with Python invocation blocked, paths containing spaces, dependency-based copying of nested inputs and local styles, refreshed dependency graphs, preservation of the shared bibliography, omission of unused assets, source-safe ignore rules, incremental text/bibliography changes, citation-free and citing letters, project-role and reviewer protections, round archiving/restoration and failed-transfer recovery, editor-only rounds, covers and metadata, independent ZIP extraction, cleanup, and both complete HOWTO review rounds. HOWTO code/assets and received-comment wording are checked against the supplied walkthrough files. The tests also run from an initialized author project. The template and fictional examples are distributed under the MIT license; IEEEtran remains subject to its own license.

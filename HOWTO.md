@@ -15,6 +15,8 @@ Everything below is fictional. Start in the template clone. The `support/walkthr
 
 ## Initialize and submit the original
 
+To initialize the example project, copy its original sources, and compile the manuscript, run the following Bash commands:
+
 <!-- RUN -->
 ```bash
 make init-project DEST=../guided-paper
@@ -25,6 +27,8 @@ make original
 ```
 
 The original deliberately has incomplete details and an outdated reference so the revisions have visible changes.
+
+The LaTeX source file `support/walkthrough/original/paper.tex` contains:
 
 <!-- FILE support/walkthrough/original/paper.tex -->
 ```tex
@@ -54,6 +58,8 @@ The mean provides a compact summary of these example readings.
 \end{document}
 ```
 
+The BibTeX bibliography file `support/walkthrough/original/paper.bib` contains:
+
 <!-- FILE support/walkthrough/original/paper.bib -->
 ```bibtex
 % All entries in this walkthrough are fictional.
@@ -73,7 +79,9 @@ The mean provides a compact summary of these example readings.
 
 ## Receive the first decision: reviewers 1, 2, and 3
 
-A plain-text email can mix paragraphs, numbering, and bullets:
+A plain-text email can mix paragraphs, numbering, and bullets.
+
+The fictional decision email in the plain-text file `support/walkthrough/emails/round1.txt` reads:
 
 <!-- FILE support/walkthrough/emails/round1.txt -->
 ```text
@@ -112,6 +120,8 @@ The Fictional Editor
 
 Create the round and add reviewer 3 to the default reviewers 1 and 2. Add reviewers before filling their comments and responses.
 
+To create round 1 and add its third reviewer, run the following Bash commands:
+
 <!-- RUN -->
 ```bash
 make new-round
@@ -123,6 +133,8 @@ make info-reviewer ROUND=1
 
 The revised paper defines N, specifies units, calculates the mean, and acknowledges outlier limitations. Its bibliography corrects Beta's title/year, removes Gamma, adds Delta, and includes Epsilon for citations used only in rebuttals.
 
+To fill round 1 with the completed manuscript, bibliography, and responses shown below, run the following Bash commands:
+
 <!-- RUN -->
 ```bash
 cp support/walkthrough/revised1/paper.tex revised1/paper.tex
@@ -133,6 +145,8 @@ cp support/walkthrough/reply1/reviewer1-comments.tex reply1/reviewer1-comments.t
 cp support/walkthrough/reply1/reviewer2-comments.tex reply1/reviewer2-comments.tex
 cp support/walkthrough/reply1/reviewer3-comments.tex reply1/reviewer3-comments.tex
 ```
+
+The LaTeX source file `support/walkthrough/revised1/paper.tex` contains:
 
 <!-- FILE support/walkthrough/revised1/paper.tex -->
 ```tex
@@ -167,6 +181,8 @@ The mean provides a compact summary of these example readings.
 \end{document}
 ```
 
+The BibTeX bibliography file `support/walkthrough/revised1/paper.bib` contains:
+
 <!-- FILE support/walkthrough/revised1/paper.bib -->
 ```bibtex
 % All entries in this walkthrough are fictional.
@@ -189,6 +205,8 @@ The mean provides a compact summary of these example readings.
 }
 ```
 
+The LaTeX source file `support/walkthrough/reply1/metadata.tex` contains:
+
 <!-- FILE support/walkthrough/reply1/metadata.tex -->
 ```tex
 \newcommand{\PaperTitle}{A Simple Sensor Averaging Method}
@@ -197,6 +215,8 @@ The mean provides a compact summary of these example readings.
 ```
 
 Convert the editor's paragraphs into separate pairs, reviewer 1's numbered comments into `enumerate`, and reviewer 2's bullets into `itemize`. Each comment below reproduces its email wording, and each answer describes an actual change above.
+
+The LaTeX source file `support/walkthrough/reply1/editor-comments.tex` contains:
 
 <!-- FILE support/walkthrough/reply1/editor-comments.tex -->
 ```tex
@@ -216,6 +236,8 @@ Convert the editor's paragraphs into separate pairs, reviewer 1's numbered comme
 \end{itemize}
 ```
 
+The LaTeX source file `support/walkthrough/reply1/reviewer1-comments.tex` contains:
+
 <!-- FILE support/walkthrough/reply1/reviewer1-comments.tex -->
 ```tex
 \Needspace{14\baselineskip}
@@ -234,6 +256,8 @@ Convert the editor's paragraphs into separate pairs, reviewer 1's numbered comme
 \end{enumerate}
 ```
 
+The LaTeX source file `support/walkthrough/reply1/reviewer2-comments.tex` contains:
+
 <!-- FILE support/walkthrough/reply1/reviewer2-comments.tex -->
 ```tex
 \Needspace{14\baselineskip}
@@ -251,6 +275,8 @@ Convert the editor's paragraphs into separate pairs, reviewer 1's numbered comme
     \response{The comparison PDF shows the changes against the original submission. For this fictional response-reporting convention, we cite Epsilon~\cite{reporting}. This reference is used only in the rebuttal.}
 \end{itemize}
 ```
+
+The LaTeX source file `support/walkthrough/reply1/reviewer3-comments.tex` contains:
 
 <!-- FILE support/walkthrough/reply1/reviewer3-comments.tex -->
 ```tex
@@ -274,7 +300,9 @@ Reviewers 1 and 3 have no citations and no references section. The editor cites 
 
 ## Build, inspect, and submit round 1
 
-Removing the now-populated reviewer 1 must fail. This conditional verifies that refusal while allowing the example to continue:
+Removing the now-populated reviewer 1 must fail. This conditional verifies that refusal while allowing the example to continue.
+
+To check reviewer-removal protection, build round 1, and compile its extracted submission archive, run the following Bash commands:
 
 <!-- RUN -->
 ```bash
@@ -300,6 +328,8 @@ Inspect `revised1/paper.pdf`, `revised1/paper-diff.pdf`, and the five plain lett
 The independent archive build in `submission-check/` verifies the submitted sources. Submit the required PDFs and `revised1/paper-revised1.zip`, then freeze round 1. The source ZIP contains the manuscript's locally recorded dependencies and a minimal standalone build system, not rebuttal letters or the repository's entire history.
 
 ## Receive the second decision: reviewers 1, 3, and 4
+
+The fictional decision email in the plain-text file `support/walkthrough/emails/round2.txt` reads:
 
 <!-- FILE support/walkthrough/emails/round2.txt -->
 ```text
@@ -345,6 +375,8 @@ Use `new-round` again; it inherits reviewers 1, 2, and 3 and replaces old answer
 
 The removal succeeds before any edits because both reviewer 2 files still match their generated scaffolds. An edited wrapper or comments file would be protected against removal.
 
+To create round 2, change its reviewers to 1, 3, and 4, and fill its revised sources and responses, run the following Bash commands:
+
 <!-- RUN -->
 ```bash
 make new-round
@@ -364,6 +396,8 @@ cp support/walkthrough/reply2/reviewer4-comments.tex reply2/reviewer4-comments.t
 These edits address the second email; the manuscript ID changes to `GUIDE-2026-001-R2`.
 
 The round 2 bibliography is unchanged and inherited; no separate database is needed.
+
+The LaTeX source file `support/walkthrough/revised2/paper.tex` contains:
 
 <!-- FILE support/walkthrough/revised2/paper.tex -->
 ```tex
@@ -400,12 +434,16 @@ The mean provides a compact summary of these example readings.
 \end{document}
 ```
 
+The LaTeX source file `support/walkthrough/reply2/metadata.tex` contains:
+
 <!-- FILE support/walkthrough/reply2/metadata.tex -->
 ```tex
 \newcommand{\PaperTitle}{A Simple Sensor Averaging Method}
 \newcommand{\PaperAuthors}{Ada Author}
 \newcommand{\SubmissionID}{GUIDE-2026-001-R2}
 ```
+
+The LaTeX source file `support/walkthrough/reply2/editor-comments.tex` contains:
 
 <!-- FILE support/walkthrough/reply2/editor-comments.tex -->
 ```tex
@@ -425,6 +463,8 @@ The mean provides a compact summary of these example readings.
 \end{itemize}
 ```
 
+The LaTeX source file `support/walkthrough/reply2/reviewer1-comments.tex` contains:
+
 <!-- FILE support/walkthrough/reply2/reviewer1-comments.tex -->
 ```tex
 \Needspace{14\baselineskip}
@@ -443,6 +483,8 @@ The mean provides a compact summary of these example readings.
 \end{enumerate}
 ```
 
+The LaTeX source file `support/walkthrough/reply2/reviewer3-comments.tex` contains:
+
 <!-- FILE support/walkthrough/reply2/reviewer3-comments.tex -->
 ```tex
 \Needspace{14\baselineskip}
@@ -460,6 +502,8 @@ The mean provides a compact summary of these example readings.
     \response{We added this statement to the Limitations section; the example remains an illustration of the arithmetic mean.}
 \end{enumerate}
 ```
+
+The LaTeX source file `support/walkthrough/reply2/reviewer4-comments.tex` contains:
 
 <!-- FILE support/walkthrough/reply2/reviewer4-comments.tex -->
 ```tex
@@ -483,6 +527,8 @@ Reviewers 1 and 3 remain citation-free. Reviewer 4 cites Beta and Epsilon from t
 
 ## Build, inspect, and submit round 2
 
+To build and package round 2, inspect reviewer membership, and remove auxiliaries, run the following Bash commands:
+
 <!-- RUN -->
 ```bash
 make -j4
@@ -503,6 +549,8 @@ Root membership information shows three reviewers in each round: `1 2 3` in roun
 Run these commands from the publication root after completing the guided example.
 
 Archive and restore the completed second round. Its answers and PDFs remain intact; with one matching archive, no `ARCHIVE` selection is needed.
+
+To archive and restore the completed second round, run the following Bash commands:
 
 <!-- RUN -->
 ```bash

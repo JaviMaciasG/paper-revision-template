@@ -143,3 +143,7 @@ Thumbs.db
 # Live build/mutation locks are transient. Pristine reviewer baselines are tracked.
 **/.template-lock/
 **/.paper-template.*/
+
+# Rendered project guides; Markdown sources remain tracked.
+/README.pdf
+/HOWTO.pdf

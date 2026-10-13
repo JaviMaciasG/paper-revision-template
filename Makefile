@@ -4,8 +4,14 @@ BASH_CMD ?= bash
 MANUSCRIPTS := original $(sort $(wildcard revised[0-9]*))
 REPLIES := $(sort $(wildcard reply[0-9]*))
 STAGES := $(MANUSCRIPTS) $(REPLIES)
-.PHONY: all help check-tools init-project new-round remove-round restore-round add-reviewer remove-reviewer info-reviewer zip clean distclean test bundle $(STAGES)
+.PHONY: all docs help check-tools init-project new-round remove-round restore-round add-reviewer remove-reviewer info-reviewer zip clean distclean test bundle $(STAGES)
 all: $(STAGES)
+
+DOC_SUPPORT := support/docs.sh support/docs.lua support/docs-header.tex support/common.sh support/latexmkrc
+docs: README.pdf HOWTO.pdf
+README.pdf HOWTO.pdf: %.pdf: %.md $(DOC_SUPPORT)
+	@$(BASH_CMD) support/docs.sh build "$*"
+
 $(STAGES):
 	+$(MAKE) -C "$@" all
 help:
@@ -22,6 +28,7 @@ help:
 	 '  info-reviewer    Report all rounds; optional ROUND=N' \
 	 '  bundle           Append diffs to letters; COVER=1 adds a note page' \
 	 '  zip              Create manuscript source ZIPs in stage folders' \
+	 '  docs             Build numbered README.pdf and HOWTO.pdf (requires Pandoc)' \
 	 '  clean            Remove auxiliaries, retaining PDFs and ZIPs' \
 	 '  distclean        Remove generated outputs, preserving source figures and guards' \
 	 '  test             Run Bash integration tests, including the HOWTO walkthrough';
@@ -41,5 +48,6 @@ bundle:
 	@set -e; for stage in $(REPLIES); do $(MAKE) -C "$$stage" bundle; done
 clean distclean:
 	@set -e; for stage in $(STAGES); do $(MAKE) -C "$$stage" $@; done
+	@$(BASH_CMD) support/docs.sh $@
 test:
 	@$(BASH_CMD) tests/run.sh

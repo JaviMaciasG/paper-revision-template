@@ -47,6 +47,55 @@ fresh_author() {
     assert_file HOWTO.md
     cmp -s HOWTO.md "$TEST_SOURCE_ROOT/HOWTO.md" || fail 'Initialized project lost the guided example'
 }
+test_documentation() {
+    command -v pandoc >/dev/null 2>&1 || { printf 'Pandoc unavailable; skipping optional documentation builds.\n'; return 0; }
+    ok make -j2 docs
+    assert_file README.pdf; assert_file HOWTO.pdf
+    assert_absent original/paper.pdf
+    pdf_text README.pdf > "$CASE_DIR/readme-pdf.txt"
+    pdf_text HOWTO.pdf > "$CASE_DIR/howto-pdf.txt"
+    assert_has "$CASE_DIR/readme-pdf.txt" 'Contents'
+    assert_has "$CASE_DIR/readme-pdf.txt" '3.4.1'
+    assert_has "$CASE_DIR/howto-pdf.txt" '8 Optional: remove and restore the completed round'
+    assert_has build/docs/HOWTO/HOWTO.tex '\KeywordTok{\textbackslash{}'
+    if command -v mutool >/dev/null 2>&1; then
+        mutool show README.pdf grep > "$CASE_DIR/document-links.txt"
+        assert_has "$CASE_DIR/document-links.txt" '/D(receive-the-second-decision-reviewers-1-3-and-4)'
+        assert_has "$CASE_DIR/document-links.txt" '/D(optional-remove-and-restore-the-completed-round)'
+    fi
+    cp README.pdf "$CASE_DIR/unchanged-readme.pdf"
+    ok make -q README.pdf HOWTO.pdf
+    ok make README.pdf HOWTO.pdf
+    cmp -s README.pdf "$CASE_DIR/unchanged-readme.pdf" || fail 'Unchanged documentation rebuilt'
+    sleep 1
+    touch README.md
+    bad make -q README.pdf
+    mkdir "$CASE_DIR/no-pandoc-tools"
+    for tool in make dirname; do ln -s "$(command -v "$tool")" "$CASE_DIR/no-pandoc-tools/$tool"; done
+    bad env PATH="$CASE_DIR/no-pandoc-tools" make README.pdf "BASH_CMD=$(command -v bash)"
+    assert_has "$CASE_DIR/command.log" 'Missing tool: pandoc'
+    cmp -s README.pdf "$CASE_DIR/unchanged-readme.pdf" || fail 'Failed build replaced the previous PDF'
+    ok make README.pdf
+    ok make -q README.pdf HOWTO.pdf
+    sleep 1
+    touch support/docs-header.tex
+    bad make -q HOWTO.pdf
+    ok make docs
+    mkdir "$CASE_DIR/blocked-pandoc"
+    printf '#!/bin/sh\necho "Unexpected Pandoc invocation" >&2\nexit 88\n' > "$CASE_DIR/blocked-pandoc/pandoc"
+    chmod +x "$CASE_DIR/blocked-pandoc/pandoc"
+    ok env PATH="$CASE_DIR/blocked-pandoc:$PATH" make check-tools original
+    ok make clean
+    assert_file README.pdf; assert_file HOWTO.pdf
+    assert_absent build/docs
+    ok make distclean
+    assert_absent README.pdf; assert_absent HOWTO.pdf
+    fresh_author
+    ok make -j2 docs
+    assert_file README.pdf; assert_file HOWTO.pdf
+    pdf_text README.pdf > "$CASE_DIR/author-readme-pdf.txt"
+    assert_has "$CASE_DIR/author-readme-pdf.txt" 'Manuscript project'
+}
 test_help_tools() {
     for stage in . original revised1 reply1; do
         ok make -C "$stage" help; assert_has "$CASE_DIR/command.log" help
@@ -269,7 +318,7 @@ SH
 test_ignore_rules() {
     command -v git >/dev/null 2>&1 || return 0
     ok git init -q
-    for file in original/paper.aux original/paper.bcf original/paper.ind original/paper.gls original/paper.nav original/paper.synctex.gz original/paper.synctex.gz\(busy\) original/.notes.tex.swp original/.DS_Store original/Thumbs.db original/paper.bak original/paper.pdf original/paper-original.zip revised1/paper-revised1.zip .removed-rounds/round2-example/revised2/paper-revised2.zip .removed-rounds/round2-example/revised2/paper.pdf .removed-rounds/round2-example/reply2/reviewer1.pdf; do
+    for file in README.pdf HOWTO.pdf original/paper.aux original/paper.bcf original/paper.ind original/paper.gls original/paper.nav original/paper.synctex.gz original/paper.synctex.gz\(busy\) original/.notes.tex.swp original/.DS_Store original/Thumbs.db original/paper.bak original/paper.pdf original/paper-original.zip revised1/paper-revised1.zip .removed-rounds/round2-example/revised2/paper-revised2.zip .removed-rounds/round2-example/revised2/paper.pdf .removed-rounds/round2-example/reply2/reviewer1.pdf; do
         ok git -c core.excludesFile=/dev/null check-ignore -q "$file"
     done
     for extension in tex bib bst sty cls pdf eps svg png jpg tikz ist xdy mp mf gnuplot table zip; do
@@ -277,6 +326,8 @@ test_ignore_rules() {
         bad git -c core.excludesFile=/dev/null check-ignore -q ".removed-rounds/round2-example/revised2/figures/source.$extension"
     done
     bad git -c core.excludesFile=/dev/null check-ignore -q reply1/.reviewer-scaffolds/reviewer1.tex
+    bad git -c core.excludesFile=/dev/null check-ignore -q README.md
+    bad git -c core.excludesFile=/dev/null check-ignore -q HOWTO.md
     bad git -c core.excludesFile=/dev/null check-ignore -q .vscode/tasks.json
 }
 capture_archive() {
@@ -713,7 +764,7 @@ test_howto_walkthrough() {
          $1=="reply2" && $3==3 && $4==1 && $5==3 && $6==4 && $7=="yes" {second=1}
          END {exit !(first && second)}' "$CASE_DIR/command.log" || fail 'Unexpected walkthrough reviewer information'
 }
-CASES=(test_help_tools test_template_protection test_manuscript_dependencies test_ignore_rules test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_howto_walkthrough)
+CASES=(test_help_tools test_documentation test_template_protection test_manuscript_dependencies test_ignore_rules test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_howto_walkthrough)
 if [ "${1:-}" = --case ]; then
     init_case
     "$2"

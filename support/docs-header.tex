@@ -1,0 +1,32 @@
+% Pandoc supplies highlighting macros; fvextra wraps long source/email lines.
+\usepackage{fvextra}
+\usepackage{xurl}
+\usepackage{etoolbox}
+\usepackage{needspace}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},breaklines=true,breakanywhere=true,fontsize=\small}
+\DefineVerbatimEnvironment{verbatim}{Verbatim}{breaklines=true,breakanywhere=true,fontsize=\small}
+\AtBeginEnvironment{longtable}{\footnotesize}
+\AtBeginDocument{\hypersetup{bookmarksnumbered=true}\urlstyle{tt}}
+\setlength{\emergencystretch}{3em}
+% FancyVerb can split long code across pages without framed shading boxes.
+\renewenvironment{Shaded}{}{}
+
+% A subtle background for every fenced block, including plain-text emails.
+\definecolor{DocCodeBackground}{HTML}{F3F7FA}
+\newtcolorbox{DocCode}{
+  enhanced,
+  breakable,
+  sharp corners,
+  boxrule=0pt,
+  colback=DocCodeBackground,
+  colframe=DocCodeBackground,
+  boxsep=0pt,
+  left=2mm,
+  right=2mm,
+  top=1.5mm,
+  bottom=1.5mm,
+  before skip=6pt,
+  after skip=6pt
+}
