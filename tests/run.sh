@@ -640,7 +640,7 @@ test_ghostscript_fallback() {
 check_email() {
     local email=$1 role=$2 tex=$3
     awk -v role="$role" '
-      /^EDITOR \(/ || /^REVIEWER [12] \(/ {active=(index($0,role)==1); next}
+      /^EDITOR \(/ || /^REVIEWER [1-9][0-9]* \(/ {active=(index($0,role " (")==1); next}
       /^Please use / || /^The Fictional Editor/ {active=0}
       active && NF {sub(/^[0-9]+\. /, ""); sub(/^- /, ""); print}' "$email" > "$CASE_DIR/email-comments.txt"
     sed -n 's/.*\\reviewercomment{\(.*\)}.*/\1/p' "$tex" > "$CASE_DIR/tex-comments.txt"
@@ -656,8 +656,10 @@ test_readme_walkthrough() {
     done < <(sed -n 's/^<!-- FILE \(.*\) -->$/\1/p' "$project/README.md")
     for round in 1 2; do
         check_email "$project/support/walkthrough/emails/round$round.txt" EDITOR "$project/support/walkthrough/reply$round/editor-comments.tex"
-        check_email "$project/support/walkthrough/emails/round$round.txt" 'REVIEWER 1' "$project/support/walkthrough/reply$round/reviewer1-comments.tex"
-        check_email "$project/support/walkthrough/emails/round$round.txt" 'REVIEWER 2' "$project/support/walkthrough/reply$round/reviewer2-comments.tex"
+        if [ "$round" = 1 ]; then ids=(1 2 3); else ids=(1 3 4); fi
+        for id in "${ids[@]}"; do
+            check_email "$project/support/walkthrough/emails/round$round.txt" "REVIEWER $id" "$project/support/walkthrough/reply$round/reviewer$id-comments.tex"
+        done
     done
     {
         printf '#!/usr/bin/env bash\nset -e -o pipefail\n'
@@ -670,11 +672,34 @@ test_readme_walkthrough() {
     guide=$CASE_DIR/guided-paper
     assert_file "$guide/revised2/paper.pdf"; assert_file "$guide/reply2/responses-with-diff.pdf"
     assert_file "$guide/submission-check/paper.pdf"
-    for stage in original revised1; do cmp -s "$guide/$stage/paper.tex" "$guide/support/walkthrough/$stage/paper.tex" || fail 'Earlier manuscript changed'; done
-    for stage in reply1 reply2; do
-        assert_has "$guide/$stage/Makefile" 'REVIEWERS := 1 2'
-        assert_absent "$guide/$stage/reviewer3.tex"
+    for stage in original revised1; do
+        for source in paper.tex paper.bib; do
+            cmp -s "$guide/$stage/$source" "$guide/support/walkthrough/$stage/$source" || fail 'Earlier manuscript changed'
+        done
     done
+    for round in 1 2; do
+        stage=reply$round
+        if [ "$round" = 1 ]; then ids=(1 2 3); else ids=(1 3 4); fi
+        assert_has "$guide/$stage/Makefile" "REVIEWERS := ${ids[*]}"
+        for document in metadata.tex editor-comments.tex; do
+            cmp -s "$guide/$stage/$document" "$guide/support/walkthrough/$stage/$document" || fail 'Earlier response sources changed'
+        done
+        for letter in responses editor; do assert_file "$guide/$stage/$letter.pdf"; done
+        for id in "${ids[@]}"; do
+            assert_file "$guide/$stage/reviewer$id.tex"
+            assert_file "$guide/$stage/reviewer$id.pdf"
+            assert_file "$guide/$stage/reviewer$id-with-diff.pdf"
+            cmp -s "$guide/$stage/reviewer$id-comments.tex" "$guide/support/walkthrough/$stage/reviewer$id-comments.tex" || fail 'Reviewer responses changed'
+        done
+    done
+    for suffix in .tex -comments.tex .pdf -with-diff.pdf; do
+        assert_absent "$guide/reply2/reviewer2$suffix"
+        assert_absent "$guide/reply1/reviewer4$suffix"
+    done
+    ok make -C "$guide" info-reviewer
+    awk '$1=="reply1" && $3==3 && $4==1 && $5==2 && $6==3 && $7=="yes" {first=1}
+         $1=="reply2" && $3==3 && $4==1 && $5==3 && $6==4 && $7=="yes" {second=1}
+         END {exit !(first && second)}' "$CASE_DIR/command.log" || fail 'Unexpected walkthrough reviewer information'
 }
 CASES=(test_help_tools test_template_protection test_manuscript_dependencies test_ignore_rules test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_readme_walkthrough)
 if [ "${1:-}" = --case ]; then

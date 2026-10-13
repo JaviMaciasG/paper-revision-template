@@ -22,5 +22,10 @@ REVIEWER 2 (bulleted comments)
 - Replace Gamma's outdated checklist with a more recent limitations reference.
 - Explain how the revision history can be checked and provide a reference for the response-reporting convention.
 
+REVIEWER 3 (numbered comments)
+1. State how many readings are used in the worked example.
+2. Explain whether readings of different physical quantities can be averaged together.
+3. Make clear that the example does not establish general performance or robustness.
+
 Please use manuscript ID GUIDE-2026-001 for this revision.
 The Fictional Editor

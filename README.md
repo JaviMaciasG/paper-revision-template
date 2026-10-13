@@ -2,6 +2,15 @@
 
 A reusable paper project with explicit submitted manuscripts and review rounds. The example IEEE paper is a short manual; its first revision demonstrates text changes and reference corrections, additions, and deletions. All names, results, and references in the examples are fictional.
 
+- [Why did I generated this repo](#why-did-i-generated-this-repo)
+- [Getting started](#getting-started)
+- [The publication workflow](#the-publication-workflow)
+- [Guided example: changing reviewers across two rounds](#guided-example-changing-reviewers-across-two-rounds)
+- [Optional operations](#optional-operations)
+- [Command and file reference](#command-and-file-reference)
+- [Why I keep complete stage folders](#why-i-keep-complete-stage-folders)
+- [Validation and license](#validation-and-license)
+
 ## Why did I generated this repo
 
 I created this repository because I was tired of the manual work involved in handling paper revisions. The process often repeats: submit a manuscript, receive comments from the editor and reviewers, prepare response letters and a revised manuscript, submit them, and possibly receive another set of comments and start again.
@@ -12,7 +21,19 @@ The reviewers can change between rounds, and so can their number. I wanted a sys
 
 This template automates the repetitive preparation and build tasks. It creates new review rounds, provides structured response files, builds combined and individual rebuttal letters, and generates the revised manuscript and its marked comparison with the preceding submission. This lets me spend more time addressing the comments and improving the paper.
 
-## Start a real publication
+## Getting started
+
+### Requirements
+
+Use GNU Make, Bash 3.2 or newer, and ordinary Unix utilities on Linux/macOS. Install TeX Live with pdfLaTeX, BibTeX, IEEEtran, latexmk, latexpand, and latexdiff. Source archives require `zip` and `unzip`; bundles require either Poppler's `pdfunite` or Ghostscript (`gs`). The integration tests also use `pdfinfo`/`pdftotext` when available, with Ghostscript fallbacks. Native Windows users can use WSL. No Python interpreter, pip packages, or Python helper scripts are required.
+
+Run `make check-tools` from the clone to check your installation. `make help` works without TeX; each stage also has a help target.
+
+### Template clone versus publication project
+
+The clone contains a populated demonstration. You can build it with `make`, `make bundle`, or `make zip`. Source-changing management targets are disabled there to protect the example. Use `init-project` to create an independent, editable publication project. Details are in [protection and cleanup](#protection-cleanup-and-interrupted-operations).
+
+### Create your publication project
 
 Clone this repository, then create an author project outside the clone:
 
@@ -22,7 +43,13 @@ cd ../my-paper
 make help
 ```
 
-The new project contains the build system, documentation, examples, and a minimal `original/paper.tex` and `original/paper.bib`. It has no review rounds and no Git history. **Replace both files with your real manuscript and bibliography**, keeping these filenames. The starter itself gives these instructions. Put included TeX files, figures, and other dependencies inside `original/`; avoid dependencies outside the project. Update the title and authors in the manuscript. Use your publication's required IEEE options and packages.
+The new project contains the build system, documentation, examples, and a minimal `original/paper.tex` and `original/paper.bib`. It has no review rounds and no Git history. **Replace both files with your real manuscript and bibliography**, keeping these filenames. The starter itself gives these instructions. See [preparing the original manuscript](#prepare-and-submit-the-original-manuscript) for where to put your sources.
+
+## The publication workflow
+
+### Prepare and submit the original manuscript
+
+Replace `original/paper.tex` and `original/paper.bib` with your real manuscript and bibliography. Put included TeX files, figures, and other dependencies inside `original/`; avoid dependencies outside the project. Update the title and authors, and use your publication's required IEEE options and packages.
 
 ```bash
 make check-tools
@@ -34,58 +61,9 @@ git add .
 git commit -m 'Initial submitted manuscript'
 ```
 
-Submit `original/paper.pdf`, then treat the sources in `original/` as the submitted snapshot. To explore the template's already populated example instead, run `make`, `make bundle`, or `make zip` directly in the clone. Use `init-project` for your own publication rather than overwriting that demonstration.
+Submit `original/paper.pdf`, then treat the sources in `original/` as the submitted snapshot.
 
-## Template protection
-
-The template clone's root Makefile declares `PROJECT_ROLE := template`. It refuses `new-round`, `remove-round`, `restore-round`, `add-reviewer`, and `remove-reviewer` so an accidental workflow command cannot change the demonstration's stages or reviewer membership. `init-project` automatically writes `PROJECT_ROLE := publication` into the new project's root Makefile, enabling those commands there. No separate marker file or manual activation step is needed.
-
-The shared Bash helpers read the declaration directly from the root Makefile before creating locks, temporary directories, or changing sources. The check applies at the root, inside `replyN/`, and to direct helper calls. Command-line or environment assignments such as `make new-round PROJECT_ROLE=publication` do not bypass it. A missing or invalid declaration also refuses source-changing commands.
-
-Initialization, builds, comparisons, bundles, archives, tests, help, and reviewer information remain available in the template clone. `clean` and `distclean` remain available too: they remove generated outputs while preserving source files and reviewer safety records. This protects the supplied workflow against mistakes; it does not prevent deliberate manual edits or filesystem deletion. Keep the role declaration literal and retain the template role in the clone.
-
-## Requirements and reproducible builds
-
-Use GNU Make, Bash 3.2 or newer, and ordinary Unix utilities on Linux/macOS. Install TeX Live with pdfLaTeX, BibTeX, IEEEtran, latexmk, latexpand, and latexdiff. Source archives require `zip` and `unzip`; bundles require either Poppler's `pdfunite` or Ghostscript (`gs`). The integration tests also use `pdfinfo`/`pdftotext` when available, with Ghostscript fallbacks. Native Windows users can use WSL. No Python interpreter, pip packages, or Python helper scripts are required.
-
-`make check-tools` checks the tools; `make help` works without TeX or Bash. Every stage has its own help target. Builds use latexmk's dependency tracking and project-owned configuration, ignoring personal latexmk configuration. PDFs sit beside their TeX sources; auxiliaries, expanded sources, and generated bibliography/configuration files stay in each stage's `build/`. An unchanged comparison does not rebuild its PDF. Sources, citations, and bibliography dependencies are followed automatically. Undefined citations/references and missing bibliography entries fail the build.
-
-Tool versions can differ between installations, and PDF timestamps can vary across clean builds. Byte-for-byte reproducible PDFs across machines are not promised.
-
-## Layout and everyday commands
-
-```text
-original/                    Submitted manuscript: paper.tex, paper.bib
-revised1/, revised2/, ...     Complete manuscript sources for each round
-reply1/, reply2/, ...         Response letters for the matching round
-support/                     Shared Make rules, Bash helpers, letter scaffolds
-  walkthrough/               Fictional, ready-to-copy guided example assets
-tests/                       Bash integration tests and independent fixtures
-```
-
-Each `revisedN/Makefile` declares its `BASELINE` and `replyN/Makefile` its `REVISION`. The defaults compare `revised1` with `original`, then `revisedN` with `revised(N-1)`. Keep `paper.tex`/`paper.bib` in every manuscript stage; this avoids selecting comparison files by ad hoc names. The comparison is always `revisedN/paper-diff.pdf`. Generated names are reserved for build outputs; place PDF figures in a subdirectory such as `figures/`.
-
-| Command | Result |
-| --- | --- |
-| `make` or `make all` | All manuscripts, comparisons, combined/editor/individual letters |
-| `make -C original` | Original manuscript only |
-| `make -C revised1 paper` | Revised manuscript only |
-| `make -C revised1 diff` | Comparison against the configured baseline |
-| `make -C reply1 responses` | Combined letter |
-| `make -C reply1 editor` | Editor letter |
-| `make -C reply1 reviewer2` | Reviewer 2 letter |
-| `make remove-round ROUND=2` | Archive the latest active round (publication root only) |
-| `make restore-round ROUND=2` | Restore the next round; select `ARCHIVE=name` if ambiguous |
-| `make bundle` | All round-specific letters with the matching comparison appended |
-| `make -C reply1 bundle COVER=1` | This round's bundles, with an explanatory cover before each letter |
-| `make zip` | Standalone source archives for all manuscripts |
-| `make clean` | Remove auxiliaries; retain generated PDFs and ZIP archives |
-| `make distclean` | Remove generated outputs; preserve source figures and reviewer guards |
-| `make test` | Bash integration suite, including the executable README example |
-
-`make -j4` is supported. Helpers serialize operations on the same stage; independent stages can build concurrently. Do not edit sources while a build or stage-management operation is running. A `.template-lock` directory normally disappears automatically. If a process is killed forcibly, check its `owner` PID and confirm no operation is running before removing that stale lock directory and retrying.
-
-## Starting the first and later revisions
+### Start the first revision
 
 From an initialized publication project's root, after receiving the first decision:
 
@@ -93,66 +71,16 @@ From an initialized publication project's root, after receiving the first decisi
 make new-round
 ```
 
-This builds `original/paper.tex`, copies its manuscript dependencies into `revised1/`, and creates `reply1/` from the response scaffold, initially with two reviewers plus the editor. The required build tools must be installed before creating a round. Edit `revised1/paper.tex`, its included sources, and `revised1/paper.bib`. Fill `reply1/metadata.tex`, `editor-comments.tex`, and the configured `reviewerX-comments.tex` files. Build with `make`, then `make bundle` if the submission needs marked comparisons. Leave the submitted original unchanged.
+This builds `original/paper.tex`, copies its manuscript dependencies into `revised1/`, and creates `reply1/` from the response scaffold, initially with two reviewers plus the editor. The required build tools must be installed before creating a round. See the following steps to configure reviewers, edit sources, and build the submission.
 
-After submitting round 1 and receiving the next decision, run the **same** root command:
-
-```bash
-make new-round
-```
-
-It creates `revised2/` from `revised1/` and `reply2/` from `reply1/`. Further invocations create round 3 and onwards; there are no unused rounds at initialization. Metadata, reviewer membership, formatting, and cover preference are inherited. Comment/answer bodies are replaced with useful TODO scaffolds, retaining the prior outer `enumerate`/`itemize` choice. Update the new manuscript ID if the journal changes it. No old submitted folder is modified. An orphaned round or existing destination is an error, rather than permission to overwrite it.
-
-To select manuscript files, `new-round` runs latexmk on the preceding manuscript and exports its source dependencies into `build/paper.deps`. The manuscript lock covers both the build and copying. The helper reads latexmk's documented dependency export, including dependencies of BibTeX, and preserves the relative paths of required stage-local files: nested TeX inputs, figures (including PDF figures), local classes/packages, bibliography databases, and bibliography styles. Installed TeX files are identified through Kpathsea's TeX installation roots and supplied by the author's TeX installation.
-
-Latexmk removes known generated files from its source dependency export. The existing `paper.bib` is always copied in full, even if only the rebuttal will cite its entries. The manuscript Makefile is regenerated with the new baseline. Required source dependencies inside `build/` or other generated/transient directories, source symlinks, missing dependencies, and required files outside the manuscript stage and TeX installation cause a clear error. Build or validation failure publishes neither new round folder; it can update generated outputs of the preceding manuscript.
-
-Only dependencies used by the active build are selected. Unused assets, unreferenced notes, empty directories, and inactive conditional inputs are omitted; copy such files manually if you need them for later edits. Selection does not depend on Git tracking or `.gitignore`. Required dependencies can be copied even when their names match an ignore rule. Keep manuscript dependencies stage-local and avoid reserved output names for source assets.
-
-Use a literal integer reviewer list and literal relative baseline/revision paths in the thin stage Makefiles. Management helpers read these declarations directly; do not replace them with computed Make expressions. To compare against a different submitted stage temporarily, use `make -C revised2 diff BASELINE=../original`; restore the usual comparison for bundles, or change the stage's `BASELINE` declaration deliberately. All manuscript dependencies must remain inside their stage for standalone source archives.
-
-Comparisons start from `paper.tex` in each selected stage. The helper builds both manuscripts, expands their literal `\input{...}` sources with `latexpand`, inserts each compiled bibliography, and runs `latexdiff` on the expanded documents. Changes in included sections and rendered bibliography entries therefore appear in `paper-diff.pdf`. An omitted inactive conditional input can produce a flattening warning; its input command is retained and skipped by TeX. Missing active inputs fail the required manuscript build before comparison.
-
-Manuscript source ZIPs use the same dependency collector. The ignore rules include applicable LaTeX intermediates, package caches, editor backups, and operating-system metadata adapted from the thesis template. Figure/source formats such as `.pdf`, `.eps`, `.svg`, `.tikz`, `.ist`, `.xdy`, `.mp`, and `.mf` remain trackable. Ignore rules do not grant permission to delete files; `clean` and `distclean` retain their existing source-preserving behavior.
-
-## Removing and restoring a round
-
-From a publication project's **root**, remove the latest round from the active workflow without discarding its contents:
-
-```bash
-make remove-round ROUND=2
-```
-
-The complete `revised2/` and `reply2/` folders move into a unique directory such as `.removed-rounds/round2-ABC123/`. The command prints the actual archive name and a ready-to-use restore command. Edited manuscripts, bibliography entries, reviewer answers, removal guards, figures, generated PDFs, and build files are preserved. Archives do not participate in normal builds or reviewer information, and `clean`/`distclean` leave them untouched. Archived sources remain eligible for Git tracking; generated outputs retain their ignore rules. Archiving does not free disk space.
-
-Both targets require an explicit positive `ROUND`; they are unavailable in the protected template clone and are root-only, including direct helper calls. Removal requires the latest complete, consistently configured pair and refuses other active stages that refer to it through `BASELINE` or `REVISION`. Earlier rounds and `original/` remain intact. Source-changing commands must run separately from builds; the helpers wait for existing stage locks before transferring files.
-
-Restore the next round after the highest active round:
-
-```bash
-make restore-round ROUND=2
-```
-
-When exactly one archive matches, it is selected automatically. Several archived attempts require an explicit choice; the error lists their names:
-
-```bash
-ls -d .removed-rounds/round2-*
-make restore-round ROUND=2 ARCHIVE=round2-ABC123
-```
-
-`ARCHIVE` is the printed directory basename, not a path. Restoration refuses occupied destination names, missing baseline manuscripts, inconsistent pairs, and symlinked archive/stage directories. Restore archived rounds in order: if rounds 2 and 3 were removed, restore 2 before 3. Build archived documents only after restoring them to their active locations.
-
-After removal, `make new-round` can recreate that round number from the remaining latest manuscript. Its sources are newly initialized; the archived attempt is retained. To return to the previous attempt, first archive the replacement and then restore the desired archive by name. Restoration removes the empty archive container; unrelated files added to that container are retained and reported.
-
-The transfer holds project and stage locks and rolls back a completed first move if the second move fails. If rollback itself fails, the command reports the recovery location and preserves the remaining data. A forced process kill or machine shutdown can leave a partial pair and stale locks. Confirm no operation is running, inspect the active folders and archive, and move only a missing counterpart back to its original location without overwriting any existing folder. Remove stale `.template-lock` directories only after checking their owner PIDs, including locks inside the archive. Retain partial recovery data until both active folders are verified; the normal targets refuse incomplete pairs.
-
-## Reviewer membership and safe removal
+### Set the reviewers for this round
 
 There is no fixed reviewer limit. New author projects start round 1 with reviewers 1 and 2; add or remove them to match the decision. The editor is always separate and does not count as a reviewer. The `REVIEWERS` list in the round's Makefile is authoritative. Numbers remain stable when another reviewer is removed; gaps are allowed. Prefer the targets to manual changes so membership, generated inputs, sources, and safety records remain consistent.
 
 ```bash
 # From the project root:
 make add-reviewer ROUND=1                 # next unused number after the highest ID
+make remove-reviewer ROUND=1 REVIEWER=3  # remove it while untouched
 make add-reviewer ROUND=1 REVIEWER=4      # explicit journal reviewer number
 make remove-reviewer ROUND=1 REVIEWER=4
 make info-reviewer                       # every review round, counts and IDs
@@ -168,13 +96,17 @@ cd ..
 
 `REVIEWER` is optional for adding and required for removing. At the root, add/remove require `ROUND`; in `replyN`, an explicitly conflicting `ROUND` is rejected. `info-reviewer` reports the current round inside a reply folder, and all rounds at the root. With no rounds it reports the original-only status; missing configured sources are errors.
 
+The file roles are explained under [response files and formatting](#response-files-and-formatting).
+
+Removal succeeds only while both the wrapper and comments file match their generated scaffolds. Configure membership before filling answers; populated files are protected. See [protection and cleanup](#protection-cleanup-and-interrupted-operations) for details.
+
+### Revise the manuscript and write responses
+
+Edit the current `revisedN/paper.tex`, included sources, and `revisedN/paper.bib`. Fill `replyN/metadata.tex`, `editor-comments.tex`, and each configured `reviewerX-comments.tex`. Keep the previously submitted stages unchanged.
+
+#### Response files and formatting
+
 `reviewerX.tex` is a small standalone letter wrapper: audience, common preamble, introduction, and inclusion of `reviewerX-comments.tex`. **Put received comments and your answers in `reviewerX-comments.tex`**, which is also included in the combined letter. Newly added reviewers receive a ready-to-compile wrapper and a section with an optional overall comment plus three TODO comment/answer pairs. Add/remove items and use numbered or bulleted lists to match the actual decision. The editor gets analogous scaffolding.
-
-Removal succeeds only while **both** files are byte-identical to their recorded generated scaffolds. Edited answers, edited wrappers, populated demonstrations, or missing provenance cause a refusal without changing membership. There is no force-removal option. Persistent `.reviewer-scaffolds/` directories contain source baseline copies used by `cmp`, must be tracked in Git, and survive `clean`/`distclean`. A customized wrapper remains protected in subsequent rounds; new comment scaffolds in those rounds get their own baseline. Review an accidental edit and restore the untouched source only if you truly intend to discard it; do not delete safety records to bypass protection.
-
-An editor-only round is supported: remove both untouched initial reviewers before adding content. Its combined title addresses the editor, individual reviewer letters are omitted, and later rounds inherit zero reviewers until you add one.
-
-## Response letter structure and formatting
 
 `metadata.tex` defines `\PaperTitle`, `\PaperAuthors`, and `\SubmissionID`. Use the real paper title and all paper authors; separate authors with `\and`. These values are shared by combined, editor, individual, and optional cover documents.
 
@@ -198,7 +130,7 @@ Individual letters use “reviewer X”; the editor letter and editor-only combi
 
 Use `itemize` for bullets, `enumerate` for numbered comments, or separate comment/answer paragraphs for unformatted messages. Escape TeX special characters in pasted emails (for example `%`, `&`, `_`, and `#`). Keep the received wording intact; list numbering is formatting, not part of the comment text. The shared introductory section and all wrappers can be customized for your publication.
 
-## Bibliographies in rebuttals
+#### References in response letters
 
 Each round's response letters use **the same `revisedN/paper.bib` as its revised manuscript**. Do not create a separate reply bibliography. Add a reply-only entry to that file if needed; the manuscript will not list it unless cited there. Use normal `\cite{key}` or `\nocite{key}` in replies, including included TeX files. `\nocite{*}` deliberately selects every database entry.
 
@@ -206,11 +138,37 @@ Bibliography declarations are inserted automatically at the end of a letter only
 
 Manuscripts retain their own normal `\bibliographystyle{IEEEtran}` and `\bibliography{paper}` declarations. With those declarations, keep `paper.bib` present even if empty; omit the declarations if the manuscript has no bibliography at all. The automatic citation-aware behavior above applies to response letters.
 
-## Guided full example: two reviewers, two rounds
+### Build, inspect, and submit the revision
+
+From the publication root, build the manuscripts, comparisons, and all response letters:
+
+```bash
+make
+make -C reply1 bundle
+make -C revised1 zip
+```
+
+Inspect `revised1/paper.pdf` (clean manuscript), `revised1/paper-diff.pdf` (marked comparison), and the combined, editor, and individual letters in `reply1/`. Bundles append the comparison to each letter. Submit the files required by the journal; the source archive is `revised1/build/paper.zip`. Keep submitted stages unchanged and make further edits in the next round.
+
+For individual build targets, see the [command reference](#make-targets). For optional explanatory covers, see [submission covers](#optional-covers-for-submission-bundles).
+
+### Start subsequent revisions
+
+After submitting round 1 and receiving the next decision, run the **same** root command:
+
+```bash
+make new-round
+```
+
+It creates `revised2/` from `revised1/` and `reply2/` from `reply1/`. Further invocations create round 3 and onwards; there are no unused rounds at initialization. Metadata, reviewer membership, formatting, and cover preference are inherited. Comment/answer bodies are replaced with useful TODO scaffolds, retaining the prior outer `enumerate`/`itemize` choice. Update the new manuscript ID if the journal changes it. No old submitted folder is modified. An orphaned round or existing destination is an error, rather than permission to overwrite it.
+
+Check the new decision's reviewer IDs before filling responses. Remove reviewers with no report from this round while their new scaffolds are untouched, and add newly assigned reviewers. See [setting reviewers](#set-the-reviewers-for-this-round) and the [worked second round](#receive-the-second-decision-reviewers-1-3-and-4).
+
+## Guided example: changing reviewers across two rounds
 
 Everything below is fictional. Start in the template clone. The `support/walkthrough/` assets contain **exactly the text shown below**, so copying them reproduces the completed example without manually transcribing TeX. For your own publication, replace the example text with your manuscript and actual decision letters.
 
-### 1. Initialize and submit the original
+### Initialize and submit the original
 
 <!-- RUN -->
 ```bash
@@ -268,7 +226,7 @@ The mean provides a compact summary of these example readings.
 }
 ```
 
-### 2. Receive the first decision and create round 1
+### Receive the first decision: reviewers 1, 2, and 3
 
 A plain-text email can mix paragraphs, numbering, and bullets:
 
@@ -298,26 +256,25 @@ REVIEWER 2 (bulleted comments)
 - Replace Gamma's outdated checklist with a more recent limitations reference.
 - Explain how the revision history can be checked and provide a reference for the response-reporting convention.
 
+REVIEWER 3 (numbered comments)
+1. State how many readings are used in the worked example.
+2. Explain whether readings of different physical quantities can be averaged together.
+3. Make clear that the example does not establish general performance or robustness.
+
 Please use manuscript ID GUIDE-2026-001 for this revision.
 The Fictional Editor
 ```
 
-Create the round, inspect membership, and practice removing/re-adding an **untouched** reviewer before entering comments. Both folder-local and root commands operate on the same round. No extra reviewer is introduced.
+Create the round and add reviewer 3 to the default reviewers 1 and 2. Add reviewers before filling their comments and responses.
 
 <!-- RUN -->
 ```bash
 make new-round
-make info-reviewer
-cd reply1
-make remove-reviewer REVIEWER=2
-make add-reviewer
-make info-reviewer
-cd ..
-make remove-reviewer ROUND=1 REVIEWER=2
-make add-reviewer ROUND=1 REVIEWER=2
+make add-reviewer ROUND=1
+make info-reviewer ROUND=1
 ```
 
-### 3. Revise the paper and answer all comments
+### Revise the manuscript and answer the comments
 
 The revised paper defines N, specifies units, calculates the mean, and acknowledges outlier limitations. Its bibliography corrects Beta's title/year, removes Gamma, adds Delta, and includes Epsilon for citations used only in rebuttals.
 
@@ -329,6 +286,7 @@ cp support/walkthrough/reply1/metadata.tex reply1/metadata.tex
 cp support/walkthrough/reply1/editor-comments.tex reply1/editor-comments.tex
 cp support/walkthrough/reply1/reviewer1-comments.tex reply1/reviewer1-comments.tex
 cp support/walkthrough/reply1/reviewer2-comments.tex reply1/reviewer2-comments.tex
+cp support/walkthrough/reply1/reviewer3-comments.tex reply1/reviewer3-comments.tex
 ```
 
 <!-- FILE support/walkthrough/revised1/paper.tex -->
@@ -449,9 +407,27 @@ Convert the editor's paragraphs into separate pairs, reviewer 1's numbered comme
 \end{itemize}
 ```
 
-Reviewer 1 has no citations and no references section. The editor cites Alpha; reviewer 2 cites Beta, Delta, and Epsilon. The combined letter lists those four references. The manuscript lists Alpha, Beta, and Delta, excluding the reply-only Epsilon entry.
+<!-- FILE support/walkthrough/reply1/reviewer3-comments.tex -->
+```tex
+\Needspace{14\baselineskip}
+\section{Responses to the comments of reviewer 3}
+\label{sec:responses-reviewer3}
+\begin{enumerate}
+  \Needspace{5\baselineskip}
+  \item \reviewercomment{State how many readings are used in the worked example.}
+    \response{The Results section now lists all three readings, 10, 12, and 14 degrees Celsius, and shows their mean.}
+  \Needspace{5\baselineskip}
+  \item \reviewercomment{Explain whether readings of different physical quantities can be averaged together.}
+    \response{The Method section now requires every reading in a batch to measure the same quantity in the same units.}
+  \Needspace{5\baselineskip}
+  \item \reviewercomment{Make clear that the example does not establish general performance or robustness.}
+    \response{The abstract identifies the content as a fictional demonstration rather than a scientific finding. The new Limitations section explicitly disclaims robustness to outliers.}
+\end{enumerate}
+```
 
-### 4. Verify removal protection, build, and submit round 1
+Reviewers 1 and 3 have no citations and no references section. The editor cites Alpha; reviewer 2 cites Beta, Delta, and Epsilon. The combined letter lists those four references. The manuscript lists Alpha, Beta, and Delta, excluding the reply-only Epsilon entry.
+
+### Build, inspect, and submit round 1
 
 Removing the now-populated reviewer 1 must fail. This conditional verifies that refusal while allowing the example to continue:
 
@@ -466,6 +442,7 @@ make -C reply1 responses
 make -C reply1 editor
 make -C reply1 reviewer1
 make -C reply1 reviewer2
+make -C reply1 reviewer3
 make -C reply1 bundle COVER=1
 make -C reply1 bundle COVER=0
 make zip
@@ -473,11 +450,11 @@ mkdir submission-check
 (cd submission-check && unzip -q ../revised1/build/paper.zip && make)
 ```
 
-Inspect `revised1/paper.pdf`, `revised1/paper-diff.pdf`, and the four plain letters in `reply1/`. Bundles have names such as `responses-with-diff.pdf` and put the optional cover first, then the letter, then the comparison. `COVER=1` is opt-in; the final command above restores uncovered bundles. Set `COVER := 1` in a reply Makefile to make covers its persistent default; a command-line `COVER=0` overrides it.
+Inspect `revised1/paper.pdf`, `revised1/paper-diff.pdf`, and the five plain letters in `reply1/`. Bundles have names such as `responses-with-diff.pdf` and put the optional cover first, then the letter, then the comparison. `COVER=1` is opt-in; the final command above restores uncovered bundles. Set `COVER := 1` in a reply Makefile to make covers its persistent default; a command-line `COVER=0` overrides it.
 
 The independent archive build in `submission-check/` verifies the submitted sources. Submit the required PDFs and `revised1/build/paper.zip`, then freeze round 1. The source ZIP contains the manuscript's locally recorded dependencies and a minimal standalone build system, not rebuttal letters or the repository's entire history.
 
-### 5. Receive the second decision
+### Receive the second decision: reviewers 1, 3, and 4
 
 <!-- FILE support/walkthrough/emails/round2.txt -->
 ```text
@@ -486,6 +463,10 @@ Subject: Minor revision for GUIDE-2026-001-R2
 Dear Ada Author,
 
 Please address the following final clarifications for the same fictional paper.
+
+No follow-up report was received from reviewer 2 concerning your first-round responses.
+Reviewer 4 has joined this round; reports from reviewers 1, 3, and 4 follow.
+The absence of reviewer 2's report does not imply approval.
 
 EDITOR (unformatted paragraphs)
 Keep the earlier submitted files intact and compare this revision against the first revised manuscript.
@@ -499,26 +480,43 @@ REVIEWER 1 (numbered comments)
 2. State whether a separate mean is computed for each batch.
 3. Confirm that temperature units remain consistent within a batch.
 
-REVIEWER 2 (bulleted comments)
+REVIEWER 3 (numbered comments)
+1. Confirm that the worked example still contains exactly three readings.
+2. State whether the same quantity and unit requirements apply to every batch.
+3. State explicitly that no robust estimator is evaluated in this example.
+
+REVIEWER 4 (bulleted comments)
 - Explain why Beta's publication year is now 2025.
-- State explicitly that no robust estimator is evaluated in this example.
+- Explain whether the example demonstrates performance on real sensor data.
 - Retain the response-reporting reference and identify which files record this round.
 
 Please use manuscript ID GUIDE-2026-001-R2 for the final revision.
 The Fictional Editor
 ```
 
-Use `new-round` again; it copies round 1's submitted manuscript and bibliography, inherits the same two reviewers, and replaces old answers with new TODO scaffolds. The following edits address this second email; the ID changes to `GUIDE-2026-001-R2`.
+Use `new-round` again; it inherits reviewers 1, 2, and 3 and replaces old answers with new TODO scaffolds. Keep reviewer 2's completed round-1 letter intact. In round 2, remove that reviewer's untouched scaffolds because no follow-up report was received, and add reviewer 4 using the number assigned in the decision. Reviewers 1 and 3 retain their numbers.
+
+### Update reviewers, revise, and answer the new comments
+
+The removal succeeds before any edits because both reviewer 2 files still match their generated scaffolds. An edited wrapper or comments file would be protected against removal.
 
 <!-- RUN -->
 ```bash
 make new-round
+cd reply2
+make remove-reviewer REVIEWER=2
+make add-reviewer REVIEWER=4
+make info-reviewer
+cd ..
 cp support/walkthrough/revised2/paper.tex revised2/paper.tex
 cp support/walkthrough/reply2/metadata.tex reply2/metadata.tex
 cp support/walkthrough/reply2/editor-comments.tex reply2/editor-comments.tex
 cp support/walkthrough/reply2/reviewer1-comments.tex reply2/reviewer1-comments.tex
-cp support/walkthrough/reply2/reviewer2-comments.tex reply2/reviewer2-comments.tex
+cp support/walkthrough/reply2/reviewer3-comments.tex reply2/reviewer3-comments.tex
+cp support/walkthrough/reply2/reviewer4-comments.tex reply2/reviewer4-comments.tex
 ```
+
+These edits address the second email; the manuscript ID changes to `GUIDE-2026-001-R2`.
 
 The round 2 bibliography is unchanged and inherited; no separate database is needed.
 
@@ -600,29 +598,52 @@ The mean provides a compact summary of these example readings.
 \end{enumerate}
 ```
 
-<!-- FILE support/walkthrough/reply2/reviewer2-comments.tex -->
+<!-- FILE support/walkthrough/reply2/reviewer3-comments.tex -->
 ```tex
 \Needspace{14\baselineskip}
-\section{Responses to the comments of reviewer 2}
-\label{sec:responses-reviewer2}
+\section{Responses to the comments of reviewer 3}
+\label{sec:responses-reviewer3}
+\begin{enumerate}
+  \Needspace{5\baselineskip}
+  \item \reviewercomment{Confirm that the worked example still contains exactly three readings.}
+    \response{The Results section retains the same three example readings and the mean of 12 degrees Celsius.}
+  \Needspace{5\baselineskip}
+  \item \reviewercomment{State whether the same quantity and unit requirements apply to every batch.}
+    \response{The Method section states that all readings in a batch measure the same quantity in the same units. The new sentence about separate batch means retains this requirement for each batch.}
+  \Needspace{5\baselineskip}
+  \item \reviewercomment{State explicitly that no robust estimator is evaluated in this example.}
+    \response{We added this statement to the Limitations section; the example remains an illustration of the arithmetic mean.}
+\end{enumerate}
+```
+
+<!-- FILE support/walkthrough/reply2/reviewer4-comments.tex -->
+```tex
+\Needspace{14\baselineskip}
+\section{Responses to the comments of reviewer 4}
+\label{sec:responses-reviewer4}
 \begin{itemize}
   \Needspace{5\baselineskip}
   \item \reviewercomment{Explain why Beta's publication year is now 2025.}
     \response{The first revision corrected the deliberately inaccurate fictional metadata while retaining the method key~\cite{method}. We retain that correction in revised2.}
   \Needspace{5\baselineskip}
-  \item \reviewercomment{State explicitly that no robust estimator is evaluated in this example.}
-    \response{We added this statement to the Limitations section.}
+  \item \reviewercomment{Explain whether the example demonstrates performance on real sensor data.}
+    \response{The abstract states that the example is fictional demonstration content, not a scientific finding. We make no claim about performance on real sensor data.}
   \Needspace{5\baselineskip}
   \item \reviewercomment{Retain the response-reporting reference and identify which files record this round.}
     \response{We retain Epsilon's fictional convention~\cite{reporting}. The revised2 manuscript and reply2 response files record this round; earlier stages remain separate and unchanged.}
 \end{itemize}
 ```
 
-### 6. Build, inspect membership, and submit round 2
+Reviewers 1 and 3 remain citation-free. Reviewer 4 cites Beta and Epsilon from the inherited revised2/paper.bib; its references are included automatically in both the individual and combined letters.
+
+### Build, inspect, and submit round 2
 
 <!-- RUN -->
 ```bash
 make -j4
+make -C reply2 reviewer1
+make -C reply2 reviewer3
+make -C reply2 reviewer4
 make -C reply2 bundle
 make -C revised2 zip
 make info-reviewer
@@ -630,9 +651,44 @@ make info-reviewer
 make clean
 ```
 
-Root membership information shows two reviewers (`1 2`) in each round, plus the editor. Folder-local information shows round 2 alone. `revised2/paper-diff.pdf` compares with `revised1`, while the first comparison still compares with `original`. `clean` leaves PDFs, source archives, and removal guards available. Freeze round 2 after submission; use `make new-round` for a later decision.
+Root membership information shows three reviewers in each round: `1 2 3` in round 1 and `1 3 4` in round 2, plus the editor. Each round has five plain letters: combined, editor, and three individual reviewer letters. Reviewer 2's letter remains in reply1; reply2 has no reviewer 2 letter. Folder-local information shows round 2 alone. `revised2/paper-diff.pdf` compares with `revised1`, while the first comparison still compares with `original`. `clean` leaves PDFs, source archives, and removal guards available. Freeze round 2 after submission; use `make new-round` for a later decision.
 
-### 7. Practice reversible removal and restoration
+## Optional operations
+
+### Remove and restore a round
+
+From a publication project's **root**, remove the latest round from the active workflow without discarding its contents:
+
+```bash
+make remove-round ROUND=2
+```
+
+The complete `revised2/` and `reply2/` folders move into a unique directory such as `.removed-rounds/round2-ABC123/`. The command prints the actual archive name and a ready-to-use restore command. Edited manuscripts, bibliography entries, reviewer answers, removal guards, figures, generated PDFs, and build files are preserved. Archives do not participate in normal builds or reviewer information, and `clean`/`distclean` leave them untouched. Archived sources remain eligible for Git tracking; generated outputs retain their ignore rules. Archiving does not free disk space.
+
+Both targets require an explicit positive `ROUND`; they are unavailable in the protected template clone and are root-only, including direct helper calls. Removal requires the latest complete, consistently configured pair and refuses other active stages that refer to it through `BASELINE` or `REVISION`. Earlier rounds and `original/` remain intact. Source-changing commands must run separately from builds; the helpers wait for existing stage locks before transferring files.
+
+Restore the next round after the highest active round:
+
+```bash
+make restore-round ROUND=2
+```
+
+When exactly one archive matches, it is selected automatically. Several archived attempts require an explicit choice; the error lists their names:
+
+```bash
+ls -d .removed-rounds/round2-*
+make restore-round ROUND=2 ARCHIVE=round2-ABC123
+```
+
+`ARCHIVE` is the printed directory basename, not a path. Restoration refuses occupied destination names, missing baseline manuscripts, inconsistent pairs, and symlinked archive/stage directories. Restore archived rounds in order: if rounds 2 and 3 were removed, restore 2 before 3. Build archived documents only after restoring them to their active locations.
+
+After removal, `make new-round` can recreate that round number from the remaining latest manuscript. Its sources are newly initialized; the archived attempt is retained. To return to the previous attempt, first archive the replacement and then restore the desired archive by name. Restoration removes the empty archive container; unrelated files added to that container are retained and reported.
+
+The transfer holds project and stage locks and rolls back a completed first move if the second move fails. If rollback itself fails, the command reports the recovery location and preserves the remaining data. A forced process kill or machine shutdown can leave a partial pair and stale locks. Confirm no operation is running, inspect the active folders and archive, and move only a missing counterpart back to its original location without overwriting any existing folder. Remove stale `.template-lock` directories only after checking their owner PIDs, including locks inside the archive. Retain partial recovery data until both active folders are verified; the normal targets refuse incomplete pairs.
+
+### Worked removal and restoration example
+
+Run these commands from the publication root after completing the guided example.
 
 Archive and restore the completed second round. Its answers and PDFs remain intact; with one matching archive, no `ARCHIVE` selection is needed.
 
@@ -644,7 +700,7 @@ make restore-round ROUND=2
 make info-reviewer
 ```
 
-### Optional editor-only publication
+### Editor-only revisions
 
 This is a separate branch of the workflow, not a step to run in the completed guided project. In a fresh author project, before filling any reviewer files:
 
@@ -659,6 +715,92 @@ make -C reply1 bundle
 ```
 
 The combined document addresses the editor, and subsequent rounds retain zero reviewers unless you add one.
+
+### Optional covers for submission bundles
+
+A bundle normally contains the letter followed by the matching manuscript comparison. To add an explanatory cover before each letter:
+
+```bash
+make -C reply1 bundle COVER=1
+```
+
+Set `COVER := 1` in the reply Makefile for a persistent default; a command-line `COVER=0` overrides it. The cover uses the same title, authors, and manuscript ID as the letters. Plain letters remain available separately.
+
+## Command and file reference
+
+### Folder layout and file roles
+
+```text
+original/                    Submitted manuscript: paper.tex, paper.bib
+revised1/, revised2/, ...     Complete manuscript sources for each round
+reply1/, reply2/, ...         Response letters for the matching round
+support/                     Shared Make rules, Bash helpers, letter scaffolds
+  walkthrough/               Fictional, ready-to-copy guided example assets
+tests/                       Bash integration tests and independent fixtures
+```
+
+Each `revisedN/Makefile` declares its `BASELINE` and `replyN/Makefile` its `REVISION`. The defaults compare `revised1` with `original`, then `revisedN` with `revised(N-1)`. Keep `paper.tex`/`paper.bib` in every manuscript stage; this avoids selecting comparison files by ad hoc names. The comparison is always `revisedN/paper-diff.pdf`. Generated names are reserved for build outputs; place PDF figures in a subdirectory such as `figures/`.
+
+### Make targets
+
+| Command | Result |
+| --- | --- |
+| `make help` | Available targets and options |
+| `make check-tools` | Check required build tools |
+| `make init-project DEST=../my-paper` | Create an independent publication project |
+| `make new-round` | Create the next manuscript and response stage |
+| `make add-reviewer ROUND=1` | Add the next reviewer; use `REVIEWER=4` for an explicit ID |
+| `make remove-reviewer ROUND=1 REVIEWER=4` | Remove an untouched reviewer scaffold |
+| `make info-reviewer` | Show all rounds; use `ROUND=1` to select one |
+| `make` or `make all` | All manuscripts, comparisons, combined/editor/individual letters |
+| `make -C original` | Original manuscript only |
+| `make -C revised1 paper` | Revised manuscript only |
+| `make -C revised1 diff` | Comparison against the configured baseline |
+| `make -C reply1 responses` | Combined letter |
+| `make -C reply1 editor` | Editor letter |
+| `make -C reply1 reviewer2` | Reviewer 2 letter |
+| `make remove-round ROUND=2` | Archive the latest active round (publication root only) |
+| `make restore-round ROUND=2` | Restore the next round; select `ARCHIVE=name` if ambiguous |
+| `make bundle` | All round-specific letters with the matching comparison appended |
+| `make -C reply1 bundle COVER=1` | This round's bundles, with an explanatory cover before each letter |
+| `make zip` | Standalone source archives for all manuscripts |
+| `make clean` | Remove auxiliaries; retain generated PDFs and ZIP archives |
+| `make distclean` | Remove generated outputs; preserve source figures and reviewer guards |
+| `make test` | Bash integration suite, including the executable README example |
+
+### Comparison baselines and included files
+
+Use a literal integer reviewer list and literal relative baseline/revision paths in the thin stage Makefiles. Management helpers read these declarations directly; do not replace them with computed Make expressions. To compare against a different submitted stage temporarily, use `make -C revised2 diff BASELINE=../original`; restore the usual comparison for bundles, or change the stage's `BASELINE` declaration deliberately. All manuscript dependencies must remain inside their stage for standalone source archives.
+
+Comparisons start from `paper.tex` in each selected stage. The helper builds both manuscripts, expands their literal `\input{...}` sources with `latexpand`, inserts each compiled bibliography, and runs `latexdiff` on the expanded documents. Changes in included sections and rendered bibliography entries therefore appear in `paper-diff.pdf`. An omitted inactive conditional input can produce a flattening warning; its input command is retained and skipped by TeX. Missing active inputs fail the required manuscript build before comparison.
+
+### Manuscript dependency copying and source archives
+
+To select manuscript files, `new-round` runs latexmk on the preceding manuscript and exports its source dependencies into `build/paper.deps`. The manuscript lock covers both the build and copying. The helper reads latexmk's documented dependency export, including dependencies of BibTeX, and preserves the relative paths of required stage-local files: nested TeX inputs, figures (including PDF figures), local classes/packages, bibliography databases, and bibliography styles. Installed TeX files are identified through Kpathsea's TeX installation roots and supplied by the author's TeX installation.
+
+Latexmk removes known generated files from its source dependency export. The existing `paper.bib` is always copied in full, even if only the rebuttal will cite its entries. The manuscript Makefile is regenerated with the new baseline. Required source dependencies inside `build/` or other generated/transient directories, source symlinks, missing dependencies, and required files outside the manuscript stage and TeX installation cause a clear error. Build or validation failure publishes neither new round folder; it can update generated outputs of the preceding manuscript.
+
+Only dependencies used by the active build are selected. Unused assets, unreferenced notes, empty directories, and inactive conditional inputs are omitted; copy such files manually if you need them for later edits. Selection does not depend on Git tracking or `.gitignore`. Required dependencies can be copied even when their names match an ignore rule. Keep manuscript dependencies stage-local and avoid reserved output names for source assets.
+
+Manuscript source ZIPs use the same dependency collector. The ignore rules include applicable LaTeX intermediates, package caches, editor backups, and operating-system metadata adapted from the thesis template. Figure/source formats such as `.pdf`, `.eps`, `.svg`, `.tikz`, `.ist`, `.xdy`, `.mp`, and `.mf` remain trackable. Ignore rules do not grant permission to delete files; `clean` and `distclean` retain their existing source-preserving behavior.
+
+### Build behavior and reproducibility
+
+`make check-tools` checks the tools; `make help` works without TeX or Bash. Every stage has its own help target. Builds use latexmk's dependency tracking and project-owned configuration, ignoring personal latexmk configuration. PDFs sit beside their TeX sources; auxiliaries, expanded sources, and generated bibliography/configuration files stay in each stage's `build/`. An unchanged comparison does not rebuild its PDF. Sources, citations, and bibliography dependencies are followed automatically. Undefined citations/references and missing bibliography entries fail the build.
+
+Tool versions can differ between installations, and PDF timestamps can vary across clean builds. Byte-for-byte reproducible PDFs across machines are not promised.
+
+### Protection, cleanup, and interrupted operations
+
+The template clone's root Makefile declares `PROJECT_ROLE := template`. It refuses `new-round`, `remove-round`, `restore-round`, `add-reviewer`, and `remove-reviewer` so an accidental workflow command cannot change the demonstration's stages or reviewer membership. `init-project` automatically writes `PROJECT_ROLE := publication` into the new project's root Makefile, enabling those commands there. No separate marker file or manual activation step is needed.
+
+The shared Bash helpers read the declaration directly from the root Makefile before creating locks, temporary directories, or changing sources. The check applies at the root, inside `replyN/`, and to direct helper calls. Command-line or environment assignments such as `make new-round PROJECT_ROLE=publication` do not bypass it. A missing or invalid declaration also refuses source-changing commands.
+
+Initialization, builds, comparisons, bundles, archives, tests, help, and reviewer information remain available in the template clone. `clean` and `distclean` remain available too: they remove generated outputs while preserving source files and reviewer safety records. This protects the supplied workflow against mistakes; it does not prevent deliberate manual edits or filesystem deletion. Keep the role declaration literal and retain the template role in the clone.
+
+Reviewer removal succeeds only while **both** the wrapper and comments files are byte-identical to their recorded generated scaffolds. Edited answers, edited wrappers, populated demonstrations, or missing provenance cause a refusal without changing membership. There is no force-removal option. Persistent `.reviewer-scaffolds/` directories contain source baseline copies used by `cmp`, must be tracked in Git, and survive `clean`/`distclean`. A customized wrapper remains protected in subsequent rounds; new comment scaffolds in those rounds get their own baseline. Review an accidental edit and restore the untouched source only if you truly intend to discard it; do not delete safety records to bypass protection.
+
+`make -j4` is supported. Helpers serialize operations on the same stage; independent stages can build concurrently. Do not edit sources while a build or stage-management operation is running. A `.template-lock` directory normally disappears automatically. If a process is killed forcibly, check its `owner` PID and confirm no operation is running before removing that stale lock directory and retrying.
 
 ## Why I keep complete stage folders
 

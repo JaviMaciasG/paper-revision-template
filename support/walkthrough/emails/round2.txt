@@ -4,6 +4,10 @@ Dear Ada Author,
 
 Please address the following final clarifications for the same fictional paper.
 
+No follow-up report was received from reviewer 2 concerning your first-round responses.
+Reviewer 4 has joined this round; reports from reviewers 1, 3, and 4 follow.
+The absence of reviewer 2's report does not imply approval.
+
 EDITOR (unformatted paragraphs)
 Keep the earlier submitted files intact and compare this revision against the first revised manuscript.
 
@@ -16,9 +20,14 @@ REVIEWER 1 (numbered comments)
 2. State whether a separate mean is computed for each batch.
 3. Confirm that temperature units remain consistent within a batch.
 
-REVIEWER 2 (bulleted comments)
+REVIEWER 3 (numbered comments)
+1. Confirm that the worked example still contains exactly three readings.
+2. State whether the same quantity and unit requirements apply to every batch.
+3. State explicitly that no robust estimator is evaluated in this example.
+
+REVIEWER 4 (bulleted comments)
 - Explain why Beta's publication year is now 2025.
-- State explicitly that no robust estimator is evaluated in this example.
+- Explain whether the example demonstrates performance on real sensor data.
 - Retain the response-reporting reference and identify which files record this round.
 
 Please use manuscript ID GUIDE-2026-001-R2 for the final revision.
