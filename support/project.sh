@@ -42,6 +42,7 @@ case "$command" in
         if [ "$latest" = 0 ]; then previous=$TEMPLATE_ROOT/original; previous_reply=$TEMPLATE_SUPPORT/reply-skeleton
         else previous=$TEMPLATE_ROOT/revised$latest; previous_reply=$TEMPLATE_ROOT/reply$latest; fi
         [ -f "$previous/paper.tex" ] || fail "Latest manuscript is missing: $previous"
+        [ ! -L "$previous" ] || fail "Source stage symlinks are not supported: $previous"
         [ -d "$previous_reply" ] || fail "Missing reply stage: $previous_reply"
         for directory in "$TEMPLATE_ROOT"/reply*; do
             [ -d "$directory" ] || continue; name=${directory##*/}
@@ -56,7 +57,7 @@ case "$command" in
         cover=$(cfg "$previous_reply/Makefile" COVER 0)
         [[ "$cover" = 0 || "$cover" = 1 ]] || fail 'COVER must be 0 or 1'
         make_temp "$TEMPLATE_ROOT"; new_revision=$TASK_TEMP/revised$next; new_reply=$TASK_TEMP/reply$next
-        lock "$previous"; copy_sources "$previous" "$new_revision"; unlock "$previous"
+        (cd -- "$previous" && bash "$TEMPLATE_SUPPORT/build.sh" snapshot --dest "$new_revision")
         lock "$previous_reply"; copy_sources "$previous_reply" "$new_reply"
         printf 'TYPE := revision\nBASELINE := ../%s\ninclude ../support/manuscript.mk\n' "${previous##*/}" > "$new_revision/Makefile"
         printf 'REVISION := ../revised%s\nREVIEWERS := %s\nCOVER := %s\ninclude ../support/reply.mk\n' "$next" "${ids[*]}" "$cover" > "$new_reply/Makefile"

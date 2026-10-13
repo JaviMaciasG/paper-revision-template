@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh" || exit 1
+source "$TEMPLATE_SUPPORT/dependencies.sh" || exit 1
 setup_traps
 stage=$(pwd -P)
 command=${1:-}; [ "$#" -gt 0 ] && shift
 baseline= revision= cover=0 internal=0 need_diff=0 need_merge=0
+destination=
 letters=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --baseline|--revision|--cover) option=$1; [ "$#" -ge 2 ] || fail "Missing value for $1"; value=$2; shift 2
-            case "$option" in --baseline) baseline=$value;; --revision) revision=$value;; --cover) cover=$value;; esac;;
+        --baseline|--revision|--cover|--dest) option=$1; [ "$#" -ge 2 ] || fail "Missing value for $1"; value=$2; shift 2
+            case "$option" in --baseline) baseline=$value;; --revision) revision=$value;; --cover) cover=$value;; --dest) destination=$value;; esac;;
         --diff) need_diff=1; shift;; --merge) need_diff=1; need_merge=1; shift;;
         --letters) shift; while [ "$#" -gt 0 ]; do letters+=("$1"); shift; done;;
         *) fail "Unknown option: $1";;
@@ -24,6 +26,11 @@ compile() {
     require latexmk pdflatex
     if [ "$bib" = 0 ]; then options+=('-bibtex-'); else require bibtex; fi
     [ "$inside" = 0 ] || out=build
+    [ ! -L "$directory/build" ] || fail "Build directory symlinks are not supported: $directory/build"
+    mkdir -p -- "$directory/build"
+    if [ "$name" = paper ]; then
+        options+=('-deps' '-deps-escape=none' '-deps-out=build/paper.deps.tmp')
+    fi
     (cd -- "$directory" && latexmk -norc -r "$TEMPLATE_SUPPORT/latexmkrc" -pdf -interaction=nonstopmode -halt-on-error -file-line-error -recorder -auxdir=build "-outdir=$out" -emulate-aux-dir "${options[@]}" "$source")
     log=$directory/build/$name.log
     if grep -Eq 'LaTeX Warning: Citation .*undefined|There were undefined (references|citations)' "$log"; then fail "Unresolved citations/references in $log"; fi
@@ -31,13 +38,17 @@ compile() {
         # Ignore an old .blg only when the current document has no bibliography.
         if grep -q '\\bibdata{' "$directory/build/$name.aux"; then fail "Missing bibliography entry; see $directory/build/$name.blg"; fi
     fi
+    if [ "$name" = paper ]; then
+        [ -f "$directory/build/paper.deps.tmp" ] || fail 'latexmk did not export manuscript dependencies'
+        update_file "$directory/build/paper.deps.tmp" "$directory/build/paper.deps"
+    fi
 }
 expand_paper() {
     local directory=$1
     if [ -f "$directory/build/paper.bbl" ] && grep -q '\\bibdata{' "$directory/build/paper.aux"; then
-        (cd -- "$directory" && latexpand --fatal --expand-bbl build/paper.bbl paper.tex) > "$directory/build/paper-expanded.tex.tmp"
+        (cd -- "$directory" && latexpand --expand-bbl build/paper.bbl paper.tex) > "$directory/build/paper-expanded.tex.tmp"
     else
-        (cd -- "$directory" && latexpand --fatal paper.tex) > "$directory/build/paper-expanded.tex.tmp"
+        (cd -- "$directory" && latexpand paper.tex) > "$directory/build/paper-expanded.tex.tmp"
     fi
     update_file "$directory/build/paper-expanded.tex.tmp" "$directory/build/paper-expanded.tex"
 }
@@ -77,34 +88,19 @@ choose_letters() {
     done
 }
 archive() {
-    local file absolute relative name data item staging
+    local name staging
     require zip
     lock "$stage"; compile "$stage" paper
-    make_temp "$stage/build"; staging=$TASK_TEMP/sources; mkdir -- "$staging"
-    while IFS= read -r file; do
-        case "$file" in 'INPUT '*) file=${file#INPUT };; *) continue;; esac
-        absolute=$(canonical "$stage/$file")
-        # Absolute recorder inputs must not be prefixed with the stage.
-        case "$file" in /*) absolute=$(canonical "$file");; esac
-        case "$absolute" in "$stage/build/"*) continue;; "$stage/"*) ;;
-            "$TEMPLATE_ROOT/"*) fail "Submission inputs must be stage-local: $absolute";; *) continue;; esac
-        [ -f "$absolute" ] || continue
-        [ ! -L "$absolute" ] || fail "Source symlinks are not supported: $absolute"
-        relative=${absolute#"$stage"/}; mkdir -p -- "$staging/$(dirname -- "$relative")"; cp -p -- "$absolute" "$staging/$relative"
-    done < "$stage/build/paper.fls"
-    while IFS= read -r data; do
-        IFS=, read -r -a bibs <<< "$data"
-        for item in "${bibs[@]}"; do
-            absolute=$(canonical "$stage/$item.bib")
-            case "$absolute" in "$stage/"*) ;; *) fail "Non-local bibliography: $absolute";; esac
-            [ -f "$absolute" ] || fail "Missing bibliography: $absolute"
-            relative=${absolute#"$stage"/}; mkdir -p -- "$staging/$(dirname -- "$relative")"; cp -p -- "$absolute" "$staging/$relative"
-        done
-    done < <(sed -n 's/^\\bibdata{\([^}]*\)}.*/\1/p' "$stage/build/paper.aux")
-    while IFS= read -r name; do [ ! -f "$stage/$name.bst" ] || cp -p -- "$stage/$name.bst" "$staging/$name.bst"; done < <(sed -n 's/^\\bibstyle{\([^}]*\)}.*/\1/p' "$stage/build/paper.aux")
-    [ -f "$staging/paper.tex" ] || fail 'Recorder did not report paper.tex'
-    mkdir -- "$staging/support"
-    for name in common.sh build.sh manuscript.mk latexmkrc; do cp -- "$TEMPLATE_SUPPORT/$name" "$staging/support/$name"; done
+    make_temp "$stage/build"; staging=$TASK_TEMP/sources
+    copy_manuscript_dependencies "$stage" "$staging"
+    mkdir -p -- "$staging/support"
+    for name in common.sh dependencies.sh build.sh manuscript.mk latexmkrc; do
+        [ ! -e "$staging/support/$name" ] || fail "Manuscript dependency conflicts with archive build helper: support/$name"
+        cp -- "$TEMPLATE_SUPPORT/$name" "$staging/support/$name"
+    done
+    for name in LICENSE Makefile README.md; do
+        [ ! -e "$staging/$name" ] || fail "Manuscript dependency conflicts with archive metadata: $name"
+    done
     cp -- "$TEMPLATE_ROOT/LICENSE" "$staging/LICENSE"
     printf 'TYPE := manuscript\ninclude support/manuscript.mk\n' > "$staging/Makefile"
     printf '%s\n' 'Standalone manuscript sources.' 'Install GNU Make, Bash, and TeX Live (IEEEtran and latexmk).' 'Run make; paper.pdf appears beside paper.tex.' > "$staging/README.md"
@@ -140,6 +136,12 @@ case "$command" in
         if [ "$need_merge" = 1 ]; then command -v pdfunite >/dev/null 2>&1 || command -v gs >/dev/null 2>&1 || fail 'Bundles require pdfunite or gs'; fi
         printf 'Required tools are available.\n';;
     paper) lock "$stage"; compile "$stage" paper;;
+    snapshot)
+        [ -n "$destination" ] || fail 'Set a snapshot destination'
+        [ ! -e "$destination" ] && [ ! -L "$destination" ] || fail 'Snapshot destination already exists'
+        [ -f "$stage/paper.tex" ] || fail 'Missing manuscript paper.tex'
+        lock "$stage"; compile "$stage" paper
+        copy_manuscript_dependencies "$stage" "$destination";;
     diff) build_diff "$stage" "$baseline";;
     reply) choose_letters; lock "$stage"; reply_inputs "$stage" "$revision"; for name in "${letters[@]}"; do compile "$stage" "$name"; done;;
     bundle)

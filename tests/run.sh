@@ -127,6 +127,155 @@ test_template_protection() {
     ok make new-round
     assert_file revised2/paper.tex
 }
+test_manuscript_dependencies() {
+    fresh_author
+    copy_sources "$TEST_SOURCE_ROOT/tests/fixtures/original" "$author/original"
+    mkdir -p original/sections/nested original/styles original/figures
+    cat > original/copytestclass.cls <<'TEX'
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesClass{copytestclass}
+\DeclareOption*{\PassOptionsToClass{\CurrentOption}{IEEEtran}}
+\ProcessOptions\relax
+\LoadClass{IEEEtran}
+TEX
+    printf '\\ProvidesPackage{copytest}\n\\newcommand{\\CopyTestText}{Custom package text.}\n' > original/copytest.sty
+    cp "$(kpsewhich IEEEtran.bst)" original/styles/localrefs.bst
+    printf 'Nested input retained.\n' > original/sections/nested/child.tex
+    printf 'Input with spaces retained.\n' > 'original/sections/part with spaces.tex'
+    printf 'Hidden source retained.\n' > original/.hidden-fragment.tex
+    printf 'Ignored source still required.\n' > original/ignored-by-git.tex
+    printf 'TikZ-format source retained.\n' > original/figures/local.tikz
+    printf 'Unused source omitted.\n' > original/unused.txt
+    printf 'Inactive input omitted.\n' > original/sections/inactive.tex
+    printf 'Unused SVG omitted.\n' > original/figures/unused.svg
+    printf 'Unused log omitted.\n' > original/stale.log
+    printf 'Unused build file omitted.\n' > original/stale.aux
+    printf '\n/original/ignored-by-git.tex\n' >> .gitignore
+    printf '\\documentclass{article}\n\\pagestyle{empty}\n\\begin{document}Source figure.\\end{document}\n' > "$CASE_DIR/figure.tex"
+    ok pdflatex -interaction=nonstopmode -halt-on-error "-output-directory=$CASE_DIR" "$CASE_DIR/figure.tex"
+    cp "$CASE_DIR/figure.pdf" 'original/figures/sensor plot.pdf'
+    cat > original/sections/main.tex <<'TEX'
+\CopyTestText
+\input{sections/nested/child.tex}
+\input{sections/part with spaces.tex}
+\input{.hidden-fragment.tex}
+\input{ignored-by-git.tex}
+\input{figures/local.tikz}
+\includegraphics[width=0.07\linewidth]{figures/sensor plot.pdf}
+\iffalse\input{sections/inactive.tex}\fi
+TEX
+    awk '
+      /^\\documentclass/ {sub(/IEEEtran/, "copytestclass")}
+      /^\\usepackage\{graphicx\}/ {print "\\usepackage{copytest}"}
+      /^\\bibliographystyle/ {print "\\input{sections/main.tex}"; print "\\bibliographystyle{styles/localrefs}"; next}
+      {print}' original/paper.tex > original/paper.tex.tmp
+    mv original/paper.tex.tmp original/paper.tex
+    ok make new-round
+    assert_file original/build/paper.deps
+    for file in paper.tex paper.bib copytestclass.cls copytest.sty styles/localrefs.bst sections/main.tex sections/nested/child.tex 'sections/part with spaces.tex' .hidden-fragment.tex ignored-by-git.tex figures/local.tikz 'figures/sensor plot.pdf'; do
+        assert_file "revised1/$file"
+        cmp -s "original/$file" "revised1/$file" || fail "Dependency changed: $file"
+    done
+    for file in unused.txt figures/unused.svg sections/inactive.tex stale.log stale.aux paper.pdf build; do assert_absent "revised1/$file"; done
+    # Both the copy and its comparison work when inactive input files are absent.
+    ok make -C revised1 diff
+    ok make -C original zip
+    mkdir "$CASE_DIR/dependency-archive"
+    (cd "$CASE_DIR/dependency-archive" && unzip -q "$author/original/build/paper.zip" && make > "$CASE_DIR/dependency-archive.log" 2>&1) || fail 'Dependency archive did not compile independently'
+    assert_file "$CASE_DIR/dependency-archive/support/dependencies.sh"
+    assert_file "$CASE_DIR/dependency-archive/styles/localrefs.bst"
+    assert_file "$CASE_DIR/dependency-archive/figures/sensor plot.pdf"
+    assert_absent "$CASE_DIR/dependency-archive/unused.txt"
+    # Some TeX installations register texmf.cnf above/outside their TEXMF trees.
+    mkdir "$CASE_DIR/config-tools" "$CASE_DIR/registered-config"
+    printf 'Registered TeX configuration.\n' > "$CASE_DIR/registered-config/texmf.cnf"
+    export DEPENDENCY_REAL_KPSE="$(command -v kpsewhich)"
+    cat > "$CASE_DIR/config-tools/kpsewhich" <<'SH'
+#!/usr/bin/env bash
+if [ "$#" = 2 ] && [ "$1" = -all ] && [ "$2" = texmf.cnf ]; then
+    "$DEPENDENCY_REAL_KPSE" "$@"
+    printf '%s\n' "$DEPENDENCY_EXTRA_CONFIG"
+else
+    exec "$DEPENDENCY_REAL_KPSE" "$@"
+fi
+SH
+    chmod +x "$CASE_DIR/config-tools/kpsewhich"
+    cp original/build/paper.deps "$CASE_DIR/real-dependencies"
+    printf '    %s\n' "$CASE_DIR/registered-config/texmf.cnf" >> original/build/paper.deps
+    ok env PATH="$CASE_DIR/config-tools:$PATH" "DEPENDENCY_EXTRA_CONFIG=$CASE_DIR/registered-config/texmf.cnf" \
+        bash -c 'source "$1/common.sh"; source "$1/dependencies.sh"; copy_manuscript_dependencies "$2" "$3"' \
+        -- "$author/support" "$author/original" "$CASE_DIR/config-dependency-copy"
+    assert_file "$CASE_DIR/config-dependency-copy/paper.tex"
+    assert_absent "$CASE_DIR/config-dependency-copy/texmf.cnf"
+    cp "$CASE_DIR/real-dependencies" original/build/paper.deps
+    # Refresh the graph when an included file starts using a new source.
+    sed '/input{sections\/nested\/child.tex}/d' revised1/sections/main.tex > revised1/sections/main.tex.tmp
+    mv revised1/sections/main.tex.tmp revised1/sections/main.tex
+    printf 'New input retained.\n' > revised1/sections/added.tex
+    printf '\n\\input{sections/added.tex}\n' >> revised1/sections/main.tex
+    cp revised1/sections/main.tex "$CASE_DIR/valid-main.tex"
+    # Failed builds and rejected dependencies must never publish a partial pair.
+    printf '\n\\MissingCommandForTest\n' >> revised1/sections/main.tex
+    bad make new-round
+    assert_absent revised2; assert_absent reply2
+    cp "$CASE_DIR/valid-main.tex" revised1/sections/main.tex
+    printf '\n\\input{missing-source.tex}\n' >> revised1/sections/main.tex
+    bad make new-round
+    assert_absent revised2; assert_absent reply2
+    cp "$CASE_DIR/valid-main.tex" revised1/sections/main.tex
+    printf 'Outside the manuscript stage.\n' > shared.tex
+    printf '\n\\input{../shared.tex}\n' >> revised1/sections/main.tex
+    bad make new-round
+    assert_has "$CASE_DIR/command.log" 'stage-local'
+    assert_absent revised2; assert_absent reply2
+    cp "$CASE_DIR/valid-main.tex" revised1/sections/main.tex
+    printf 'Outside the project too.\n' > "$CASE_DIR/external.tex"
+    printf '\n\\input{%s}\n' "$CASE_DIR/external.tex" >> revised1/sections/main.tex
+    bad make new-round
+    assert_has "$CASE_DIR/command.log" 'outside the manuscript stage'
+    cp "$CASE_DIR/valid-main.tex" revised1/sections/main.tex
+    printf 'A local source.\n' > revised1/sections/real.tex
+    ln -s sections/real.tex revised1/alias.tex
+    printf '\n\\input{alias.tex}\n' >> revised1/sections/main.tex
+    bad make new-round
+    assert_has "$CASE_DIR/command.log" 'Source symlinks'
+    cp "$CASE_DIR/valid-main.tex" revised1/sections/main.tex
+    ln -s sections revised1/linked
+    printf '\n\\input{linked/real.tex}\n' >> revised1/sections/main.tex
+    bad make new-round
+    assert_has "$CASE_DIR/command.log" 'Source symlinks'
+    cp "$CASE_DIR/valid-main.tex" revised1/sections/main.tex
+    ok make new-round
+    assert_file revised2/sections/added.tex
+    assert_absent revised2/sections/nested/child.tex
+    assert_absent revised2/sections/real.tex
+    assert_absent revised2/alias.tex; assert_absent revised2/linked
+    ok make -C revised2
+    # A complete database is retained even when only future replies will cite it.
+    empty_author=$CASE_DIR/'citation-free publication'
+    ok make init-project "DEST=$empty_author"
+    cd "$empty_author"
+    printf '\\documentclass{article}\n\\begin{document}No citations.\\end{document}\n' > original/paper.tex
+    ok make new-round
+    cmp -s original/paper.bib revised1/paper.bib || fail 'Citation-free round lost the shared bibliography'
+    assert_not original/build/paper.deps 'paper.bib'
+    rm revised1/paper.bib
+    ok make new-round
+    assert_absent revised2/paper.bib
+}
+test_ignore_rules() {
+    command -v git >/dev/null 2>&1 || return 0
+    ok git init -q
+    for file in original/paper.aux original/paper.bcf original/paper.ind original/paper.gls original/paper.nav original/paper.synctex.gz original/paper.synctex.gz\(busy\) original/.notes.tex.swp original/.DS_Store original/Thumbs.db original/paper.bak original/paper.pdf .removed-rounds/round2-example/revised2/paper.pdf .removed-rounds/round2-example/reply2/reviewer1.pdf; do
+        ok git -c core.excludesFile=/dev/null check-ignore -q "$file"
+    done
+    for extension in tex bib bst sty cls pdf eps svg png jpg tikz ist xdy mp mf gnuplot table; do
+        bad git -c core.excludesFile=/dev/null check-ignore -q "original/figures/source.$extension"
+        bad git -c core.excludesFile=/dev/null check-ignore -q ".removed-rounds/round2-example/revised2/figures/source.$extension"
+    done
+    bad git -c core.excludesFile=/dev/null check-ignore -q reply1/.reviewer-scaffolds/reviewer1.tex
+    bad git -c core.excludesFile=/dev/null check-ignore -q .vscode/tasks.json
+}
 capture_archive() {
     ARCHIVE_ID=$(sed -n 's/.*ARCHIVE=//p' "$CASE_DIR/command.log")
     [ -n "$ARCHIVE_ID" ] && [ -d ".removed-rounds/$ARCHIVE_ID" ] || fail 'Removal did not report its archive'
@@ -527,7 +676,7 @@ test_readme_walkthrough() {
         assert_absent "$guide/$stage/reviewer3.tex"
     done
 }
-CASES=(test_help_tools test_template_protection test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_readme_walkthrough)
+CASES=(test_help_tools test_template_protection test_manuscript_dependencies test_ignore_rules test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_readme_walkthrough)
 if [ "${1:-}" = --case ]; then
     init_case
     "$2"
