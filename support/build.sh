@@ -88,22 +88,18 @@ choose_letters() {
     done
 }
 archive() {
-    local name staging archive_name="paper-${stage##*/}.zip"
+    local staging archive_name="paper-${stage##*/}.zip"
     require zip
     lock "$stage"; compile "$stage" paper
     make_temp "$stage/build"; staging=$TASK_TEMP/sources
-    copy_manuscript_dependencies "$stage" "$staging"
-    mkdir -p -- "$staging/support"
-    for name in common.sh dependencies.sh build.sh manuscript.mk latexmkrc; do
-        [ ! -e "$staging/support/$name" ] || fail "Manuscript dependency conflicts with archive build helper: support/$name"
-        cp -- "$TEMPLATE_SUPPORT/$name" "$staging/support/$name"
-    done
-    for name in LICENSE Makefile README.md; do
-        [ ! -e "$staging/$name" ] || fail "Manuscript dependency conflicts with archive metadata: $name"
-    done
-    cp -- "$TEMPLATE_ROOT/LICENSE" "$staging/LICENSE"
-    printf 'TYPE := manuscript\ninclude support/manuscript.mk\n' > "$staging/Makefile"
-    printf '%s\n' 'Standalone manuscript sources.' 'Install GNU Make, Bash, and TeX Live (IEEEtran and latexmk).' 'Run make; paper.pdf appears beside paper.tex.' > "$staging/README.md"
+    copy_manuscript_dependencies "$stage" "$staging" 0
+    [ ! -e "$staging/Makefile" ] || fail 'Manuscript dependency conflicts with the standalone archive Makefile'
+    # Keep attribution without adding a separate license or other metadata files.
+    {
+        sed 's/^/# /' "$TEMPLATE_ROOT/LICENSE"
+        printf '\n'
+        cat "$TEMPLATE_SUPPORT/archive.mk"
+    } > "$staging/Makefile"
     (cd -- "$staging" && zip -qr "$TASK_TEMP/paper.zip" .)
     mv -- "$TASK_TEMP/paper.zip" "$stage/$archive_name"
     rm -f -- "$stage/paper.zip" "$stage/build/paper.zip"

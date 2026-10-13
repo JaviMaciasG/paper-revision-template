@@ -319,7 +319,7 @@ mkdir submission-check
 
 Inspect `revised1/paper.pdf`, `revised1/paper-diff.pdf`, and the five plain letters in `reply1/`. Bundles have names such as `responses-with-diff.pdf` and put the optional cover first, then the letter, then the comparison. `COVER=1` is opt-in; the final command above restores uncovered bundles. Set `COVER := 1` in a reply Makefile to make covers its persistent default; a command-line `COVER=0` overrides it.
 
-The independent archive build in `submission-check/` verifies the submitted sources. Submit the required PDFs and `revised1/paper-revised1.zip`, then freeze round 1. The source ZIP contains the manuscript's locally recorded dependencies and a minimal standalone build system, not rebuttal letters or the repository's entire history.
+The independent archive build in `submission-check/` verifies the submitted sources. Submit the required PDFs and `revised1/paper-revised1.zip`, then freeze round 1. The source ZIP contains the manuscript's required compilation sources and one standalone Makefile, not rebuttal letters or the repository's entire history.
 
 ## Round 2: Receiving the Second Decision (Reviewers 1, 3, and 4)
 

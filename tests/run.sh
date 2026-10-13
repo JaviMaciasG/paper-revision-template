@@ -248,7 +248,10 @@ TEX
     ok make -C original zip
     mkdir "$CASE_DIR/dependency-archive"
     (cd "$CASE_DIR/dependency-archive" && unzip -q "$author/original/paper-original.zip" && make > "$CASE_DIR/dependency-archive.log" 2>&1) || fail 'Dependency archive did not compile independently'
-    assert_file "$CASE_DIR/dependency-archive/support/dependencies.sh"
+    assert_file "$CASE_DIR/dependency-archive/Makefile"
+    assert_absent "$CASE_DIR/dependency-archive/support"
+    assert_absent "$CASE_DIR/dependency-archive/README.md"
+    assert_absent "$CASE_DIR/dependency-archive/LICENSE"
     assert_file "$CASE_DIR/dependency-archive/styles/localrefs.bst"
     assert_file "$CASE_DIR/dependency-archive/figures/sensor plot.pdf"
     assert_absent "$CASE_DIR/dependency-archive/unused.txt"
@@ -325,6 +328,15 @@ SH
     ok make new-round
     cmp -s original/paper.bib revised1/paper.bib || fail 'Citation-free round lost the shared bibliography'
     assert_not original/build/paper.deps 'paper.bib'
+    ok make -C original zip
+    mkdir "$CASE_DIR/citation-free-archive"
+    (cd "$CASE_DIR/citation-free-archive" && unzip -q "$empty_author/original/paper-original.zip" && make > "$CASE_DIR/citation-free-archive.log" 2>&1) || fail 'Citation-free archive did not compile independently'
+    assert_file "$CASE_DIR/citation-free-archive/Makefile"
+    assert_absent "$CASE_DIR/citation-free-archive/paper.bib"
+    assert_absent "$CASE_DIR/citation-free-archive/support"
+    assert_absent "$CASE_DIR/citation-free-archive/README.md"
+    assert_absent "$CASE_DIR/citation-free-archive/LICENSE"
+    assert_file revised1/paper.bib
     rm revised1/paper.bib
     ok make new-round
     assert_absent revised2/paper.bib
@@ -534,7 +546,14 @@ test_build_incremental_archives() {
         mkdir -- "$CASE_DIR/extracted-$stage"
         (cd -- "$CASE_DIR/extracted-$stage" && unzip -q "$project/$stage/paper-$stage.zip" && make > "$CASE_DIR/extraction.log" 2>&1) || fail 'Archive did not compile independently'
         assert_file "$CASE_DIR/extracted-$stage/paper.pdf"
-        assert_file "$CASE_DIR/extracted-$stage/support/build.sh"
+        assert_file "$CASE_DIR/extracted-$stage/Makefile"
+        assert_absent "$CASE_DIR/extracted-$stage/support"
+        assert_absent "$CASE_DIR/extracted-$stage/README.md"
+        assert_absent "$CASE_DIR/extracted-$stage/LICENSE"
+        assert_has "$CASE_DIR/extracted-$stage/Makefile" 'Copyright (c) 2026 Javier Macias-Guarasa'
+        unzip -Z -1 "$project/$stage/paper-$stage.zip" | sed '/\/$/d' | sort > "$CASE_DIR/archive-files"
+        printf '%s\n' Makefile paper.tex paper.bib sections/comparisons.tex figures/workflow.tex | sort > "$CASE_DIR/expected-archive-files"
+        cmp -s "$CASE_DIR/archive-files" "$CASE_DIR/expected-archive-files" || fail 'Archive contains files beyond compilation sources and Makefile'
     done
     printf 'PDF figure source\n' > revised1/illustration.pdf
     printf 'Nested PDF figure source\n' > revised1/figures/paper.pdf

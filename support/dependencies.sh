@@ -14,6 +14,8 @@ dependency_lexical_path() {
 }
 copy_manuscript_dependencies() {
     local source=$1 destination=$2 manifest=$1/build/paper.deps file path relative part current root installed
+    local preserve_bibliography=${3:-1}
+    case "$preserve_bibliography" in 0|1) ;; *) fail 'Invalid bibliography preservation policy';; esac
     local tex_roots=() tex_configs=() components=()
     require kpsewhich
     [ -f "$manifest" ] || fail "Missing manuscript dependency export: $manifest"
@@ -71,8 +73,8 @@ copy_manuscript_dependencies() {
         esac
     done < <(awk '/^    / {line=substr($0,5); sub(/\\$/, "", line); print line}' "$manifest")
     [ -f "$destination/paper.tex" ] || fail 'latexmk did not report paper.tex as a source dependency'
-    # Keep the complete shared database even when only rebuttals cite its entries.
-    if [ -e "$source/paper.bib" ] || [ -L "$source/paper.bib" ]; then
+    # Revision snapshots keep the shared database; ZIPs select only compilation dependencies.
+    if [ "$preserve_bibliography" = 1 ] && { [ -e "$source/paper.bib" ] || [ -L "$source/paper.bib" ]; }; then
         [ ! -L "$source/paper.bib" ] || fail "Source symlinks are not supported: $source/paper.bib"
         [ -f "$source/paper.bib" ] || fail 'paper.bib must be a regular file'
         cp -p -- "$source/paper.bib" "$destination/paper.bib"
