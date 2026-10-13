@@ -10,13 +10,25 @@ import time
 import unittest
 import zipfile
 ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location('source_driver', ROOT / 'support/template.py')
+SOURCE_DRIVER = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(SOURCE_DRIVER)
+
+
+def ignore_generated(directory, names):
+    directory = Path(directory)
+    ignored = {'build', '.git', '__pycache__'}
+    if directory.parent == ROOT:
+        ignored.update(SOURCE_DRIVER.generated_pdf_names(directory))
+        ignored.update(name for name in names if name.endswith(('.synctex', '.synctex.gz')))
+    return ignored.intersection(names)
 
 class Workflow(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory(prefix='paper-template-test-')
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name) / 'template with spaces'
-        shutil.copytree(ROOT, self.root, ignore=shutil.ignore_patterns('build', '.git', '__pycache__'))
+        shutil.copytree(ROOT, self.root, ignore=ignore_generated)
 
     def make(self, *args, cwd=None, success=True, env=None):
         r = subprocess.run(['make', *args], cwd=cwd or self.root, env=env,
@@ -39,7 +51,19 @@ class Workflow(unittest.TestCase):
         before = (self.root / 'reply1/reviewer1-comments.tex').read_bytes()
         (self.root / 'revised1/build').mkdir()
         (self.root / 'revised1/build/paper.pdf').write_bytes(b'generated')
+        # Generated root PDFs must not become sources of the next round.
+        for relative in ('revised1/paper.pdf', 'revised1/paper-diff.pdf',
+                         'reply1/responses.pdf', 'reply1/responses-with-diff.pdf'):
+            (self.root / relative).write_bytes(b'generated output')
+        assets = {'illustration.pdf': b'root PDF figure', 'figures/paper.pdf': b'nested PDF figure'}
+        for relative, data in assets.items():
+            (self.root / 'revised1' / relative).write_bytes(data)
         self.make('new-round')
+        for relative in ('revised2/paper.pdf', 'revised2/paper-diff.pdf',
+                         'reply2/responses.pdf', 'reply2/responses-with-diff.pdf'):
+            self.assertFalse((self.root / relative).exists())
+        for relative, data in assets.items():
+            self.assertEqual((self.root / 'revised2' / relative).read_bytes(), data)
         self.assertEqual((self.root / 'revised1/paper.tex').read_bytes(), (self.root / 'revised2/paper.tex').read_bytes())
         self.assertFalse((self.root / 'revised2/build').exists())
         self.assertIn('../revised1', (self.root / 'revised2/Makefile').read_text())
@@ -47,8 +71,8 @@ class Workflow(unittest.TestCase):
         self.assertIn('TODO', (self.root / 'reply2/reviewer1-comments.tex').read_text())
         self.assertEqual(before, (self.root / 'reply1/reviewer1-comments.tex').read_bytes())
         self.make('-j4')
-        self.assertTrue((self.root / 'revised2/build/paper-diff.pdf').is_file())
-        self.assertTrue((self.root / 'reply2/build/responses.pdf').is_file())
+        self.assertTrue((self.root / 'revised2/paper-diff.pdf').is_file())
+        self.assertTrue((self.root / 'reply2/responses.pdf').is_file())
         (self.root / 'reply3').mkdir()
         (self.root / 'reply3/keep.txt').write_text('keep')
         self.make('new-round', success=False)
@@ -57,6 +81,17 @@ class Workflow(unittest.TestCase):
 
     def test_build_dependencies_bundles_archives_cleanup(self):
         self.make('-j4')
+        for stage in ('original', 'revised1', 'reply1'):
+            self.assertFalse(list((self.root / stage / 'build').glob('*.pdf')))
+        for relative in ('original/paper.pdf', 'revised1/paper.pdf',
+                         'revised1/paper-diff.pdf', 'reply1/responses.pdf',
+                         'reply1/editor.pdf', 'reply1/reviewer1.pdf', 'reply1/reviewer2.pdf'):
+            self.assertTrue((self.root / relative).is_file())
+        # Ordinary PDF assets survive both forms of cleanup.
+        figure = self.root / 'revised1/illustration.pdf'
+        nested_figure = self.root / 'revised1/figures/paper.pdf'
+        figure.write_bytes(b'root figure asset')
+        nested_figure.write_bytes(b'nested figure asset')
         diff = (self.root / 'revised1/build/paper-diff.tex').read_text()
         self.assertIn('\\bibitem{legacy}', diff)
         self.assertIn('manual snapshot', diff)
@@ -67,7 +102,7 @@ class Workflow(unittest.TestCase):
         for log in self.root.glob('*/build/*.log'):
             self.assertNotIn('undefined', log.read_text().lower(), str(log))
             self.assertNotIn('Overfull', log.read_text(), str(log))
-        output = self.root / 'revised1/build/paper-diff.pdf'
+        output = self.root / 'revised1/paper-diff.pdf'
         before = output.stat().st_mtime_ns
         self.make('-C', 'revised1', 'diff')
         self.assertEqual(before, output.stat().st_mtime_ns)
@@ -81,7 +116,7 @@ class Workflow(unittest.TestCase):
         expanded = (self.root / 'revised1/build/paper-expanded.tex').read_text()
         self.assertIn('Dependency verification sentence.', expanded)
         self.assertIn('A revised automated build checklist', expanded)
-        self.assertTrue((self.root / 'reply1/build/responses-with-diff.pdf').is_file())
+        self.assertTrue((self.root / 'reply1/responses-with-diff.pdf').is_file())
         self.make('zip')
         for stage in ('original', 'revised1'):
             extracted = self.root / ('extracted-' + stage)
@@ -91,15 +126,20 @@ class Workflow(unittest.TestCase):
                 self.assertFalse(any(n.endswith('.bbl') for n in archive.namelist()))
                 archive.extractall(extracted)
             self.make(cwd=extracted)
-            self.assertTrue((extracted / 'build/paper.pdf').is_file())
+            self.assertTrue((extracted / 'paper.pdf').is_file())
             self.make('clean', cwd=extracted)
             self.assertTrue((extracted / 'support/template.py').is_file())
+            self.assertTrue((extracted / 'paper.pdf').is_file())
         source = (self.root / 'revised1/paper.tex').read_bytes()
         self.make('clean')
         self.assertTrue(output.is_file())
         self.assertFalse((self.root / 'revised1/build/paper.aux').exists())
         self.make('distclean')
         self.assertFalse((self.root / 'revised1/build').exists())
+        self.assertFalse(output.exists())
+        self.assertFalse((self.root / 'reply1/responses-with-diff.pdf').exists())
+        self.assertEqual(figure.read_bytes(), b'root figure asset')
+        self.assertEqual(nested_figure.read_bytes(), b'nested figure asset')
         self.assertEqual(source, (self.root / 'revised1/paper.tex').read_bytes())
         self.assertTrue((self.root / 'support/template.py').is_file())
 
@@ -115,16 +155,27 @@ class Workflow(unittest.TestCase):
                 return subprocess.run(list(map(str, args)), cwd=cwd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
             with patch.object(driver, 'run', side_effect=quiet_run):
                 driver.bundle(self.root / 'reply1', '../revised1', ['responses'])
-        pdf = self.root / 'reply1/build/responses-with-diff.pdf'
+        pdf = self.root / 'reply1/responses-with-diff.pdf'
         self.assertTrue(pdf.read_bytes().startswith(b'%PDF-'))
         self.assertGreater(pdf.stat().st_size, 10000)
+
+    def test_distclean_after_build_directory_removed(self):
+        self.make('-C', 'original')
+        figure = self.root / 'original/figures/paper.pdf'
+        figure.write_bytes(b'PDF source asset')
+        shutil.rmtree(self.root / 'original/build')
+        self.make('-C', 'original', 'distclean')
+        self.assertFalse((self.root / 'original/paper.pdf').exists())
+        self.assertFalse((self.root / 'original/paper.synctex.gz').exists())
+        self.assertFalse((self.root / 'original/build').exists())
+        self.assertEqual(figure.read_bytes(), b'PDF source asset')
 
     def test_failures(self):
         r = self.make('-C', 'revised1', 'diff', 'BASELINE=../missing', success=False)
         self.assertIn('Baseline manuscript not found', r.stdout)
-        self.assertFalse((self.root / 'revised1/build/paper-diff.pdf').exists())
+        self.assertFalse((self.root / 'revised1/paper-diff.pdf').exists())
         (self.root / 'original/paper.tex').write_text('\\documentclass{article}\n\\begin{document}\n\\undefinedcommand\n\\end{document}\n')
         self.make('-C', 'original', success=False)
-        self.assertFalse((self.root / 'original/build/paper.pdf').exists())
+        self.assertFalse((self.root / 'original/paper.pdf').exists())
 
 if __name__ == '__main__': unittest.main()

@@ -60,9 +60,9 @@ def compile_tex(stage, basename, bibliography=True):
     require(['latexmk', 'pdflatex'] + (['bibtex'] if bibliography else []))
     run(['latexmk', '-norc', '-r', HELPERS / 'latexmkrc', '-pdf',
          '-interaction=nonstopmode', '-halt-on-error', '-file-line-error',
-         '-recorder', '-outdir=build', *([] if bibliography else ['-bibtex-']),
+         '-recorder', '-auxdir=build', '-outdir=.', '-emulate-aux-dir', *([] if bibliography else ['-bibtex-']),
          source.relative_to(stage)], stage)
-    return stage / 'build' / (basename + '.pdf')
+    return stage / (basename + '.pdf')
 
 
 def paper(stage):
@@ -141,7 +141,7 @@ def bundle(stage, revision_value, letters):
     with locked(stage) as out:
         for letter in letters:
             pdf = compile_tex(stage, letter)
-            target = out / (letter + '-with-diff.pdf')
+            target = stage / (letter + '-with-diff.pdf')
             temporary = out / (letter + '-with-diff.tmp.pdf')
             try:
                 if shutil.which('pdfunite'):
@@ -154,12 +154,28 @@ def bundle(stage, revision_value, letters):
                 temporary.unlink(missing_ok=True)
 
 
+def generated_pdf_names(stage):
+    """Reserved stage-root outputs; PDFs in figures/ remain source assets."""
+    if (stage / 'paper.tex').is_file():
+        return {'paper.pdf', 'paper-diff.pdf'}
+    if (stage / 'responses.tex').is_file():
+        letters = {'responses', 'editor'}
+        letters.update(p.stem for p in stage.glob('reviewer*.tex')
+                       if re.fullmatch(r'reviewer[1-9][0-9]*', p.stem))
+        return {name + suffix + '.pdf' for name in letters
+                for suffix in ('', '-with-diff')}
+    return set()
+
+
 def source_files(stage):
     """Round copies preserve stage-local sources, including PDF figure assets."""
     ignored = {'build', '.git', '__pycache__'}
+    generated_pdfs = generated_pdf_names(stage)
     auxiliary = {'.aux', '.log', '.bbl', '.blg', '.fls', '.fdb_latexmk', '.synctex', '.pyc'}
     for p in sorted(stage.rglob('*')):
         relative = p.relative_to(stage)
+        if p.parent == stage and p.name in generated_pdfs:
+            continue
         if any(part in ignored for part in relative.parts) or p.suffix in auxiliary:
             continue
         if p.name.endswith(('.synctex.gz', '~')):
@@ -271,7 +287,7 @@ def archive(stage):
                 z.writestr('README.md', 'Standalone manuscript submission sources.\n\n'
                            'Install GNU Make, Python 3, and TeX Live (IEEEtran and latexmk).\n'
                            'Run `make` to compile, or `make help` for commands.\n'
-                           'The PDF is written to build/paper.pdf. No other stages are required.\n')
+                           'The PDF is written to paper.pdf alongside paper.tex. No other stages are required.\n')
             temporary.replace(target)
         finally:
             temporary.unlink(missing_ok=True)
@@ -280,20 +296,26 @@ def archive(stage):
 
 def clean(stage, everything=False):
     out = stage / 'build'
-    if not out.exists():
-        return
     if out.is_symlink():
         raise ValueError('Refusing to clean a symlinked build directory.')
+    outputs = generated_pdf_names(stage)
+    # Handle root outputs even if a user already removed the build directory.
     with locked(stage):
         for p in out.iterdir():
             if p.name == '.lock':
                 continue
-            if not everything and p.suffix in ('.pdf', '.zip'):
+            if not everything and p.suffix == '.zip':
                 continue
             if p.is_dir() and not p.is_symlink():
                 shutil.rmtree(p)
             else:
                 p.unlink()
+        for name in outputs:
+            pdf = stage / name
+            if everything:
+                pdf.unlink(missing_ok=True)
+            for extension in ('.synctex', '.synctex.gz'):
+                pdf.with_suffix(extension).unlink(missing_ok=True)
     if everything:
         (out / '.lock').unlink(missing_ok=True)
         out.rmdir()

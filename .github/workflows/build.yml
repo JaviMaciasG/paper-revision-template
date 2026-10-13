@@ -13,9 +13,9 @@ jobs:
         with:
           name: manuscripts-and-rebuttals
           path: |
-            original/build/*.pdf
-            revised*/build/*.pdf
-            reply*/build/*.pdf
+            original/*.pdf
+            revised*/*.pdf
+            reply*/*.pdf
             original/build/*.zip
             revised*/build/*.zip
           if-no-files-found: error

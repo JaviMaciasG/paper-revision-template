@@ -12,9 +12,9 @@ make check-tools
 make -j4
 ```
 
-Open `original/build/paper.pdf`, `revised1/build/paper.pdf`, `revised1/build/paper-diff.pdf`, and `reply1/build/responses.pdf`. The comparison uses blue underlining for additions and red strikeout for deletions. It demonstrates text changes plus an unchanged reference, a corrected reference, a removed reference, and a new reference.
+Open `original/paper.pdf`, `revised1/paper.pdf`, `revised1/paper-diff.pdf`, and `reply1/responses.pdf`. The comparison uses blue underlining for additions and red strikeout for deletions. It demonstrates text changes plus an unchanged reference, a corrected reference, a removed reference, and a new reference.
 
-Replace the sample manuscript, authors, bibliography, and response content with your own. Keep each manuscript's inputs and figures inside its stage folder. Build outputs are ignored; PDF figure assets outside `build/` are tracked normally.
+Replace the sample manuscript, authors, bibliography, and response content with your own. Keep each manuscript's inputs and figures inside its stage folder. Finished PDFs appear beside the manuscript or response `.tex` files. Auxiliaries and generated comparison sources stay in `build/`; SyncTeX files accompany PDFs for editor navigation. Generated outputs are ignored, while PDF figure assets remain trackable. The stage-root filenames `paper.pdf`, `paper-diff.pdf`, `responses.pdf`, `editor.pdf`, `reviewerN.pdf`, and their response bundles are reserved for build outputs; put figures with these names in `figures/`.
 
 ## Local dependencies
 
@@ -109,7 +109,7 @@ To add a reviewer, create `reviewer3-comments.tex` and a `reviewer3.tex` wrapper
 3. Compare the expanded documents with latexdiff.
 4. Compile the result with latexmk without running BibTeX again.
 
-Generated names are stable: `build/paper-expanded.tex` and `build/paper-diff.pdf`. The enclosing directory identifies the manuscript version. Never maintain numbered flattened snapshots by hand. Bibliography corrections should retain citation keys; deleted references should also have their manuscript citations removed.
+Generated names are stable: `build/paper-expanded.tex` and `paper-diff.pdf`. The enclosing directory identifies the manuscript version. Never maintain numbered flattened snapshots by hand. Bibliography corrections should retain citation keys; deleted references should also have their manuscript citations removed.
 
 Each invocation consults latexmk's actual dependencies. Comparison source files are replaced only when their content changes. Builds lock each stage so concurrent root jobs cannot write to the same document at once. Do not run cleanup concurrently with a build.
 
@@ -119,13 +119,13 @@ Review the comparison before submission: complex mathematics, tables, and figure
 
 `metadata.tex` contains manuscript title, authors, and submission ID. `preamble.tex` provides comment/response formatting. `editor-comments.tex` and `reviewerN-comments.tex` hold the actual comments and answers. The individual wrappers and `responses.tex` reuse those files.
 
-`bundle` builds the matching revision comparison first and appends it to each letter. Output names are `responses-with-diff.pdf`, `editor-with-diff.pdf`, and `reviewerN-with-diff.pdf`. Plain response letters can be built independently of the manuscript comparison.
+`bundle` builds the matching revision comparison first and appends it to each letter. Output names are `responses-with-diff.pdf`, `editor-with-diff.pdf`, and `reviewerN-with-diff.pdf`, placed directly in the reply folder. Plain response letters can be built independently of the manuscript comparison.
 
 ## Submission archives and history
 
 `make -C revised1 zip` creates `revised1/build/paper.zip`. It collects actual project-local TeX inputs from the compiler's recorder output, adds referenced bibliography databases and local bibliography styles, and includes minimal build helpers and the license. System TeX packages are excluded. Inputs outside the stage are rejected if they belong to this repository.
 
-Extract the ZIP into an empty folder and run `make`. It builds a clean manuscript without needing other rounds. Its source helpers are in `support/`, so cleanup cannot remove them. TeX Live's IEEEtran class and style must be installed on the recipient's system. Response PDFs and bundles are submitted separately; source ZIPs contain manuscripts only.
+Extract the ZIP into an empty folder and run `make`. It builds a clean manuscript without needing other rounds. Its `paper.pdf` appears beside `paper.tex`. Its source helpers are in `support/`, so cleanup cannot remove them. TeX Live's IEEEtran class and style must be installed on the recipient's system. Response PDFs and bundles are submitted separately; source ZIPs contain manuscripts only.
 
 After submission, freeze that stage's source files and record it in Git:
 
@@ -139,6 +139,6 @@ Use a matching tag such as `submitted-revised1` for later submissions. Build tar
 
 ## Validation and license
 
-`make test` checks fresh parallel builds, unresolved references, dependency updates, no-op comparisons, stage creation, overwrite protection, source archive extraction/compilation, help without TeX, missing-tool diagnostics, build failures, and cleanup. CI retains generated PDFs and ZIPs as artifacts.
+`make test` checks fresh parallel builds, unresolved references, dependency updates, no-op comparisons, stage creation, overwrite protection, source archive extraction/compilation, help without TeX, missing-tool diagnostics, build failures, PDF placement, and cleanup that preserves PDF figures. CI retains generated PDFs and ZIPs as artifacts.
 
 The build scripts and example documents are MIT licensed. TeX Live, IEEEtran, and other tools retain their own licenses; their files are not redistributed in the source template.

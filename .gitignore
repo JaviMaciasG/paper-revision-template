@@ -1,4 +1,20 @@
-# Generated outputs live here; PDF source figures remain trackable.
+# Auxiliary files and generated comparison sources.
 **/build/
 __pycache__/
 *.pyc
+
+# Reserved stage-root PDF names. PDF figure assets remain trackable.
+/original/paper.pdf
+/original/paper-diff.pdf
+/revised[0-9]*/paper.pdf
+/revised[0-9]*/paper-diff.pdf
+/reply[0-9]*/responses.pdf
+/reply[0-9]*/responses-with-diff.pdf
+/reply[0-9]*/editor.pdf
+/reply[0-9]*/editor-with-diff.pdf
+/reply[0-9]*/reviewer[0-9]*.pdf
+
+# SyncTeX accompanies PDFs for editor navigation.
+/original/*.synctex*
+/revised[0-9]*/*.synctex*
+/reply[0-9]*/*.synctex*

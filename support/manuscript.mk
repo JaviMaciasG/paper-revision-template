@@ -15,7 +15,7 @@ all:
 	@$(DRIVER) paper
 endif
 help:
-	@printf '%s\n' '  all          Build paper$(if $(filter revision,$(TYPE)), and comparison) (default)' 	  '  help         Show applicable commands without TeX' 	  '  check-tools  Check required tools' 	  '  zip          Create a standalone manuscript source ZIP' 	  '  clean        Remove auxiliaries; retain final PDFs and ZIPs' 	  '  distclean    Remove all generated outputs';
+	@printf '%s\n' '  all          Build paper$(if $(filter revision,$(TYPE)), and comparison) (default)' 	  '  help         Show applicable commands without TeX' 'PDFs: stage folder; auxiliaries: build/' 	  '  check-tools  Check required tools' 	  '  zip          Create a standalone manuscript source ZIP' 	  '  clean        Remove auxiliaries; retain final PDFs and ZIPs' 	  '  distclean    Remove all generated outputs';
 ifeq ($(TYPE),revision)
 	@printf '%s\n' '  diff         Build both versions and their text/bibliography comparison' 'Baseline: $(BASELINE)' 'Example: make diff';
 endif
