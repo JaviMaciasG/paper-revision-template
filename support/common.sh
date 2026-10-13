@@ -21,6 +21,7 @@ lock() {
     local directory=$1 path=$1/.template-lock owner tries=0
     [ -d "$directory" ] || fail "Directory not found: $directory"
     while ! mkdir -- "$path" 2>/dev/null; do
+        [ -d "$directory" ] || fail "Stage moved or removed while waiting for its lock: $directory"
         owner=$(cat "$path/owner" 2>/dev/null || :)
         if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
             fail "Stale lock at $path (PID $owner). Confirm no build is active before removing that lock directory."

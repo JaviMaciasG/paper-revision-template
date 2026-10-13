@@ -69,6 +69,12 @@ test_template_protection() {
     refused_protected make new-round
     refused_protected make add-reviewer ROUND=1
     refused_protected make remove-reviewer ROUND=1 REVIEWER=1
+    refused_protected make remove-round ROUND=1
+    refused_protected make restore-round ROUND=2
+    refused_protected make remove-round ROUND=1 PROJECT_ROLE=publication
+    refused_protected make restore-round ROUND=2 PROJECT_ROLE=publication
+    refused_protected bash support/rounds.sh remove-round --round 1
+    refused_protected bash support/rounds.sh restore-round --round 2
     refused_protected make -C reply1 add-reviewer
     refused_protected make -C reply1 remove-reviewer REVIEWER=1
     refused_protected bash support/project.sh new-round
@@ -120,6 +126,170 @@ test_template_protection() {
     ok make add-reviewer ROUND=1
     ok make new-round
     assert_file revised2/paper.tex
+}
+capture_archive() {
+    ARCHIVE_ID=$(sed -n 's/.*ARCHIVE=//p' "$CASE_DIR/command.log")
+    [ -n "$ARCHIVE_ID" ] && [ -d ".removed-rounds/$ARCHIVE_ID" ] || fail 'Removal did not report its archive'
+}
+test_round_lifecycle() {
+    fresh_author
+    bad make remove-round
+    bad make restore-round
+    bad make remove-round ROUND=0
+    bad make restore-round ROUND=-1
+    bad make restore-round ROUND=1
+    ok make new-round; ok make new-round
+    (cd reply2 && bad bash ../support/rounds.sh remove-round --round 2) || fail 'Round removal accepted a stage working directory'
+    assert_has "$CASE_DIR/command.log" 'publication project root'
+    mkdir -p revised2/sections revised2/figures
+    printf '\\section{Unused author notes}\n' > revised2/sections/notes.tex
+    printf 'Source PDF figure\n' > revised2/figures/plot.pdf
+    printf '\n%% Edited manuscript retained during removal.\n' >> revised2/paper.tex
+    printf '\n%% Edited bibliography retained during removal.\n' >> revised2/paper.bib
+    printf '\n\\response{An edited answer must survive archiving.}\n' >> reply2/reviewer1-comments.tex
+    ok make -C revised2 paper
+    ok make -C reply2 responses
+    cp -R revised2 "$CASE_DIR/before-revised2"
+    cp -R reply2 "$CASE_DIR/before-reply2"
+    bad make remove-round ROUND=1
+    assert_has "$CASE_DIR/command.log" 'latest active round'
+    set_cfg revised1/Makefile BASELINE ../revised2
+    bad make remove-round ROUND=2
+    assert_has "$CASE_DIR/command.log" 'depends on round 2'
+    set_cfg revised1/Makefile BASELINE ../original
+    ok make remove-round ROUND=2; capture_archive; first=$ARCHIVE_ID
+    assert_absent revised2; assert_absent reply2
+    diff -r "$CASE_DIR/before-revised2" ".removed-rounds/$first/revised2" || fail 'Archive changed manuscript contents'
+    diff -r "$CASE_DIR/before-reply2" ".removed-rounds/$first/reply2" || fail 'Archive changed response contents'
+    assert_absent ".removed-rounds/$first/revised2/.template-lock"
+    assert_absent ".removed-rounds/$first/reply2/.template-lock"
+    ok make clean; ok make distclean
+    diff -r "$CASE_DIR/before-revised2" ".removed-rounds/$first/revised2" || fail 'Cleanup changed archived manuscript'
+    diff -r "$CASE_DIR/before-reply2" ".removed-rounds/$first/reply2" || fail 'Cleanup changed archived responses'
+    if command -v git >/dev/null 2>&1; then
+        ok git init -q
+        ok git -c core.excludesFile=/dev/null check-ignore -q ".removed-rounds/$first/revised2/paper.pdf"
+        ok git -c core.excludesFile=/dev/null check-ignore -q ".removed-rounds/$first/reply2/responses.pdf"
+        bad git -c core.excludesFile=/dev/null check-ignore -q ".removed-rounds/$first/revised2/paper.tex"
+        bad git -c core.excludesFile=/dev/null check-ignore -q ".removed-rounds/$first/revised2/figures/plot.pdf"
+        bad git -c core.excludesFile=/dev/null check-ignore -q ".removed-rounds/$first/reply2/.reviewer-scaffolds/reviewer1.tex"
+    fi
+    bad make restore-round ROUND=3
+    bad make restore-round ROUND=2 ARCHIVE=../outside
+    bad make restore-round ROUND=2 ARCHIVE=/tmp/outside
+    bad make restore-round ROUND=2 ARCHIVE=round1-wrong
+    bad make restore-round ROUND=2 ARCHIVE=round2-missing
+    set_cfg ".removed-rounds/$first/revised2/Makefile" BASELINE ../missing
+    bad make restore-round ROUND=2
+    assert_has "$CASE_DIR/command.log" 'Missing baseline manuscript'
+    set_cfg ".removed-rounds/$first/revised2/Makefile" BASELINE ../revised1
+    set_cfg ".removed-rounds/$first/reply2/Makefile" REVISION ../revised1
+    bad make restore-round ROUND=2
+    set_cfg ".removed-rounds/$first/reply2/Makefile" REVISION ../revised2
+    mv ".removed-rounds/$first/reply2/editor.tex" "$CASE_DIR/editor.tex"
+    bad make restore-round ROUND=2
+    mv "$CASE_DIR/editor.tex" ".removed-rounds/$first/reply2/editor.tex"
+    ln -s "$author/.removed-rounds/$first" .removed-rounds/round2-linked
+    bad make restore-round ROUND=2 ARCHIVE=round2-linked
+    rm .removed-rounds/round2-linked
+    mv ".removed-rounds/$first/revised2" "$CASE_DIR/stored-revised2"
+    ln -s "$CASE_DIR/stored-revised2" ".removed-rounds/$first/revised2"
+    bad make restore-round ROUND=2
+    rm ".removed-rounds/$first/revised2"
+    mv "$CASE_DIR/stored-revised2" ".removed-rounds/$first/revised2"
+    mv .removed-rounds "$CASE_DIR/stored-archives"
+    ln -s "$CASE_DIR/stored-archives" .removed-rounds
+    bad make restore-round ROUND=2
+    rm .removed-rounds; mv "$CASE_DIR/stored-archives" .removed-rounds
+    ok make restore-round ROUND=2
+    assert_absent ".removed-rounds/$first"
+    diff -r "$CASE_DIR/before-revised2" revised2 || fail 'Restore changed manuscript contents'
+    diff -r "$CASE_DIR/before-reply2" reply2 || fail 'Restore changed response contents'
+    bad make restore-round ROUND=2
+    ok make remove-round ROUND=2; capture_archive; edited=$ARCHIVE_ID
+    ok make new-round
+    assert_absent revised2/sections/notes.tex
+    assert_not reply2/reviewer1-comments.tex 'An edited answer'
+    assert_file ".removed-rounds/$edited/revised2/sections/notes.tex"
+    ok make remove-round ROUND=2; capture_archive; replacement=$ARCHIVE_ID
+    [ "$edited" != "$replacement" ] || fail 'Removal overwrote an existing attempt'
+    bad make restore-round ROUND=2
+    assert_has "$CASE_DIR/command.log" 'Several archives match'
+    assert_has "$CASE_DIR/command.log" "$edited"
+    assert_has "$CASE_DIR/command.log" "$replacement"
+    printf 'Extra recovery information\n' > ".removed-rounds/$edited/extra.txt"
+    ok make restore-round ROUND=2 "ARCHIVE=$edited"
+    assert_file ".removed-rounds/$edited/extra.txt"
+    assert_absent ".removed-rounds/$edited/revised2"
+    diff -r "$CASE_DIR/before-revised2" revised2 || fail 'Explicit archive choice restored the wrong manuscript'
+    diff -r "$CASE_DIR/before-reply2" reply2 || fail 'Explicit archive choice restored the wrong responses'
+    ok make new-round
+    ok make remove-round ROUND=3; capture_archive; third=$ARCHIVE_ID
+    ok make remove-round ROUND=2; capture_archive; second=$ARCHIVE_ID
+    bad make restore-round ROUND=3 "ARCHIVE=$third"
+    assert_has "$CASE_DIR/command.log" 'Restore the next round (2)'
+    ok make restore-round ROUND=2 "ARCHIVE=$second"
+    ok make restore-round ROUND=3 "ARCHIVE=$third"
+    # An occupied half-pair also refuses restoration without touching either side.
+    ok make remove-round ROUND=3; capture_archive; third=$ARCHIVE_ID
+    mkdir revised3; printf 'Do not overwrite\n' > revised3/keep.txt
+    bad make restore-round ROUND=3 "ARCHIVE=$third"
+    assert_file revised3/keep.txt
+    rm revised3/keep.txt; rmdir revised3
+    ok make restore-round ROUND=3 "ARCHIVE=$third"
+    # Force the second move to fail, including failures while restoring.
+    mkdir "$CASE_DIR/move-tools"
+    export ROUND_REAL_MV="$(command -v mv)"
+    cat > "$CASE_DIR/move-tools/mv" <<'SH'
+#!/usr/bin/env bash
+if [ "$#" = 3 ] && [ "$1" = -- ]; then
+    if [ "$2" = "$ROUND_FAIL_SOURCE" ]; then
+        [ "${ROUND_FAIL_SIGNAL:-}" != term ] || kill -TERM "$PPID"
+        exit 97
+    fi
+    if [ "${ROUND_FAIL_ROLLBACK:-}" = 1 ]; then
+        case "$2" in */.removed-rounds/round3-*/revised3) exit 98;; esac
+    fi
+fi
+exec "$ROUND_REAL_MV" "$@"
+SH
+    chmod +x "$CASE_DIR/move-tools/mv"
+    cp -R revised3 "$CASE_DIR/before-revised3"
+    cp -R reply3 "$CASE_DIR/before-reply3"
+    bad env PATH="$CASE_DIR/move-tools:$PATH" "ROUND_FAIL_SOURCE=$author/reply3" make remove-round ROUND=3
+    diff -r "$CASE_DIR/before-revised3" revised3 || fail 'Removal failure did not roll back manuscript'
+    diff -r "$CASE_DIR/before-reply3" reply3 || fail 'Removal failure did not preserve responses'
+    bad env PATH="$CASE_DIR/move-tools:$PATH" "ROUND_FAIL_SOURCE=$author/reply3" ROUND_FAIL_SIGNAL=term make remove-round ROUND=3
+    diff -r "$CASE_DIR/before-revised3" revised3 || fail 'Signal did not roll back manuscript'
+    ok make remove-round ROUND=3; capture_archive; third=$ARCHIVE_ID
+    bad env PATH="$CASE_DIR/move-tools:$PATH" "ROUND_FAIL_SOURCE=$author/.removed-rounds/$third/reply3" make restore-round ROUND=3 "ARCHIVE=$third"
+    assert_absent revised3; assert_absent reply3
+    diff -r "$CASE_DIR/before-revised3" ".removed-rounds/$third/revised3" || fail 'Restoration failure changed archive'
+    diff -r "$CASE_DIR/before-reply3" ".removed-rounds/$third/reply3" || fail 'Restoration failure changed replies'
+    ok make restore-round ROUND=3 "ARCHIVE=$third"
+    bad env PATH="$CASE_DIR/move-tools:$PATH" "ROUND_FAIL_SOURCE=$author/reply3" ROUND_FAIL_ROLLBACK=1 make remove-round ROUND=3
+    assert_has "$CASE_DIR/command.log" 'Rollback failed; recovery data remains'
+    recovery=$(sed -n 's/^Rollback failed; recovery data remains at \(.*\)\. Do not overwrite it\.$/\1/p' "$CASE_DIR/command.log")
+    [ -n "$recovery" ] || fail 'Rollback failure did not identify recovery data'
+    diff -r "$CASE_DIR/before-revised3" "$recovery" || fail 'Failed rollback lost manuscript data'
+    diff -r "$CASE_DIR/before-reply3" reply3 || fail 'Failed rollback lost reply data'
+    mv "$recovery" revised3; rmdir "$(dirname -- "$recovery")"
+    # A concurrent stage lock must finish before the round can move.
+    lock "$author/reply3"
+    bash support/rounds.sh remove-round --round 3 > "$CASE_DIR/locked-removal.log" 2>&1 &
+    removal_pid=$!
+    for attempt in 1 2 3 4 5; do
+        [ "$(cat revised3/.template-lock/owner 2>/dev/null || :)" != "$removal_pid" ] || break
+        sleep 1
+    done
+    [ "$(cat revised3/.template-lock/owner 2>/dev/null || :)" = "$removal_pid" ] || fail 'Concurrent removal did not acquire the manuscript lock'
+    assert_file revised3/paper.tex; assert_file reply3/responses.tex
+    unlock "$author/reply3"
+    wait "$removal_pid" || fail 'Removal failed after releasing the stage lock'
+    assert_absent revised3; assert_absent reply3
+    ok make restore-round ROUND=3
+    assert_absent .template-lock; assert_absent revised3/.template-lock; assert_absent reply3/.template-lock
+    ok make -j4
 }
 test_build_incremental_archives() {
     ok make -j4
@@ -357,7 +527,7 @@ test_readme_walkthrough() {
         assert_absent "$guide/$stage/reviewer3.tex"
     done
 }
-CASES=(test_help_tools test_template_protection test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_readme_walkthrough)
+CASES=(test_help_tools test_template_protection test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_readme_walkthrough)
 if [ "${1:-}" = --case ]; then
     init_case
     "$2"

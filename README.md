@@ -28,7 +28,7 @@ Submit `original/paper.pdf`, then treat the sources in `original/` as the submit
 
 ## Template protection
 
-The template clone's root Makefile declares `PROJECT_ROLE := template`. It refuses `new-round`, `add-reviewer`, and `remove-reviewer` so an accidental workflow command cannot change the demonstration's stages or reviewer membership. `init-project` automatically writes `PROJECT_ROLE := publication` into the new project's root Makefile, enabling those commands there. No separate marker file or manual activation step is needed.
+The template clone's root Makefile declares `PROJECT_ROLE := template`. It refuses `new-round`, `remove-round`, `restore-round`, `add-reviewer`, and `remove-reviewer` so an accidental workflow command cannot change the demonstration's stages or reviewer membership. `init-project` automatically writes `PROJECT_ROLE := publication` into the new project's root Makefile, enabling those commands there. No separate marker file or manual activation step is needed.
 
 The shared Bash helpers read the declaration directly from the root Makefile before creating locks, temporary directories, or changing sources. The check applies at the root, inside `replyN/`, and to direct helper calls. Command-line or environment assignments such as `make new-round PROJECT_ROLE=publication` do not bypass it. A missing or invalid declaration also refuses source-changing commands.
 
@@ -64,6 +64,8 @@ Each `revisedN/Makefile` declares its `BASELINE` and `replyN/Makefile` its `REVI
 | `make -C reply1 responses` | Combined letter |
 | `make -C reply1 editor` | Editor letter |
 | `make -C reply1 reviewer2` | Reviewer 2 letter |
+| `make remove-round ROUND=2` | Archive the latest active round (publication root only) |
+| `make restore-round ROUND=2` | Restore the next round; select `ARCHIVE=name` if ambiguous |
 | `make bundle` | All round-specific letters with the matching comparison appended |
 | `make -C reply1 bundle COVER=1` | This round's bundles, with an explanatory cover before each letter |
 | `make zip` | Standalone source archives for all manuscripts |
@@ -91,7 +93,44 @@ make new-round
 
 It creates `revised2/` from `revised1/` and `reply2/` from `reply1/`. Further invocations create round 3 and onwards; there are no unused rounds at initialization. Metadata, reviewer membership, formatting, and cover preference are inherited. Comment/answer bodies are replaced with useful TODO scaffolds, retaining the prior outer `enumerate`/`itemize` choice. Update the new manuscript ID if the journal changes it. No old submitted folder is modified. An orphaned round or existing destination is an error, rather than permission to overwrite it.
 
+To select manuscript files, `new-round` recursively walks the preceding manuscript folder and copies all regular files except known generated/transient files. It preserves relative paths, included TeX sources, bibliographies, figures (including PDF figures with non-reserved names), custom styles, hidden files, and unreferenced assets. Selection does not depend on Git tracking, `.gitignore`, TeX parsing, or a previous build. Empty directories are not copied. Source symlinks are refused.
+
+The exclusions are `build/`, `.git/`, `__pycache__/`, and `.template-lock/` directories; files ending in `.aux`, `.log`, `.bbl`, `.blg`, `.fls`, `.fdb_latexmk`, `.synctex`, `.synctex.gz`, `.pyc`, or `~`; and reserved generated PDFs such as `paper.pdf` and `paper-diff.pdf` beside `paper.tex`. The copied manuscript Makefile is replaced with the new round's configuration. Keep manuscript dependencies stage-local and avoid using reserved output names for source assets.
+
 Use a literal integer reviewer list and literal relative baseline/revision paths in the thin stage Makefiles. Management helpers read these declarations directly; do not replace them with computed Make expressions. To compare against a different submitted stage temporarily, use `make -C revised2 diff BASELINE=../original`; restore the usual comparison for bundles, or change the stage's `BASELINE` declaration deliberately. All manuscript dependencies must remain inside their stage for standalone source archives.
+
+Comparisons start from `paper.tex` in each selected stage. The helper builds both manuscripts, expands their literal `\input{...}` sources with `latexpand`, inserts each compiled bibliography, and runs `latexdiff` on the expanded documents. Changes in included sections and rendered bibliography entries therefore appear in `paper-diff.pdf`.
+
+## Removing and restoring a round
+
+From a publication project's **root**, remove the latest round from the active workflow without discarding its contents:
+
+```bash
+make remove-round ROUND=2
+```
+
+The complete `revised2/` and `reply2/` folders move into a unique directory such as `.removed-rounds/round2-ABC123/`. The command prints the actual archive name and a ready-to-use restore command. Edited manuscripts, bibliography entries, reviewer answers, removal guards, figures, generated PDFs, and build files are preserved. Archives do not participate in normal builds or reviewer information, and `clean`/`distclean` leave them untouched. Archived sources remain eligible for Git tracking; generated outputs retain their ignore rules. Archiving does not free disk space.
+
+Both targets require an explicit positive `ROUND`; they are unavailable in the protected template clone and are root-only, including direct helper calls. Removal requires the latest complete, consistently configured pair and refuses other active stages that refer to it through `BASELINE` or `REVISION`. Earlier rounds and `original/` remain intact. Source-changing commands must run separately from builds; the helpers wait for existing stage locks before transferring files.
+
+Restore the next round after the highest active round:
+
+```bash
+make restore-round ROUND=2
+```
+
+When exactly one archive matches, it is selected automatically. Several archived attempts require an explicit choice; the error lists their names:
+
+```bash
+ls -d .removed-rounds/round2-*
+make restore-round ROUND=2 ARCHIVE=round2-ABC123
+```
+
+`ARCHIVE` is the printed directory basename, not a path. Restoration refuses occupied destination names, missing baseline manuscripts, inconsistent pairs, and symlinked archive/stage directories. Restore archived rounds in order: if rounds 2 and 3 were removed, restore 2 before 3. Build archived documents only after restoring them to their active locations.
+
+After removal, `make new-round` can recreate that round number from the remaining latest manuscript. Its sources are newly initialized; the archived attempt is retained. To return to the previous attempt, first archive the replacement and then restore the desired archive by name. Restoration removes the empty archive container; unrelated files added to that container are retained and reported.
+
+The transfer holds project and stage locks and rolls back a completed first move if the second move fails. If rollback itself fails, the command reports the recovery location and preserves the remaining data. A forced process kill or machine shutdown can leave a partial pair and stale locks. Confirm no operation is running, inspect the active folders and archive, and move only a missing counterpart back to its original location without overwriting any existing folder. Remove stale `.template-lock` directories only after checking their owner PIDs, including locks inside the archive. Retain partial recovery data until both active folders are verified; the normal targets refuse incomplete pairs.
 
 ## Reviewer membership and safe removal
 
@@ -579,6 +618,18 @@ make clean
 
 Root membership information shows two reviewers (`1 2`) in each round, plus the editor. Folder-local information shows round 2 alone. `revised2/paper-diff.pdf` compares with `revised1`, while the first comparison still compares with `original`. `clean` leaves PDFs, source archives, and removal guards available. Freeze round 2 after submission; use `make new-round` for a later decision.
 
+### 7. Practice reversible removal and restoration
+
+Archive and restore the completed second round. Its answers and PDFs remain intact; with one matching archive, no `ARCHIVE` selection is needed.
+
+<!-- RUN -->
+```bash
+make remove-round ROUND=2
+make info-reviewer
+make restore-round ROUND=2
+make info-reviewer
+```
+
 ### Optional editor-only publication
 
 This is a separate branch of the workflow, not a step to run in the completed guided project. In a fresh author project, before filling any reviewer files:
@@ -605,4 +656,4 @@ The tradeoffs are extra storage, duplicated files, and the risk of editing an ol
 
 ## Validation and license
 
-`make test` exercises builds with Python invocation blocked, paths containing spaces, incremental text/bibliography changes, citation-free and citing letters, add/remove protections, editor-only rounds, covers and metadata, independent ZIP extraction, cleanup, and both complete README review rounds. README code/assets and received-comment wording are checked against the supplied walkthrough files. The tests also run from an initialized author project. The template and fictional examples are distributed under the MIT license; IEEEtran remains subject to its own license.
+`make test` exercises builds with Python invocation blocked, paths containing spaces, incremental text/bibliography changes, citation-free and citing letters, project-role and reviewer protections, round archiving/restoration and failed-transfer recovery, editor-only rounds, covers and metadata, independent ZIP extraction, cleanup, and both complete README review rounds. README code/assets and received-comment wording are checked against the supplied walkthrough files. The tests also run from an initialized author project. The template and fictional examples are distributed under the MIT license; IEEEtran remains subject to its own license.

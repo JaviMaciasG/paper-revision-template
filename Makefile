@@ -4,7 +4,7 @@ BASH_CMD ?= bash
 MANUSCRIPTS := original $(sort $(wildcard revised[0-9]*))
 REPLIES := $(sort $(wildcard reply[0-9]*))
 STAGES := $(MANUSCRIPTS) $(REPLIES)
-.PHONY: all help check-tools init-project new-round add-reviewer remove-reviewer info-reviewer zip clean distclean test bundle $(STAGES)
+.PHONY: all help check-tools init-project new-round remove-round restore-round add-reviewer remove-reviewer info-reviewer zip clean distclean test bundle $(STAGES)
 all: $(STAGES)
 $(STAGES):
 	+$(MAKE) -C "$@" all
@@ -15,6 +15,8 @@ help:
 	 '  check-tools      Check Bash, archive, TeX, and PDF tools' \
 	 '  init-project     Create an author project: DEST=../my-paper' \
 	 '  new-round        Create revisedN/replyN (publication projects only)' \
+	 '  remove-round     Archive latest round: ROUND=N (publication root only)' \
+	 '  restore-round    Restore next round: ROUND=N; optional ARCHIVE=name' \
 	 '  add-reviewer     Add reviewer: ROUND=N; optional REVIEWER=X (publication only)' \
 	 '  remove-reviewer  Remove untouched reviewer: ROUND=N REVIEWER=X (publication only)' \
 	 '  info-reviewer    Report all rounds; optional ROUND=N' \
@@ -29,6 +31,8 @@ init-project:
 	@$(BASH_CMD) support/project.sh init-project --dest "$(DEST)"
 new-round:
 	@$(BASH_CMD) support/project.sh new-round
+remove-round restore-round:
+	@$(BASH_CMD) support/rounds.sh $@ --round "$(ROUND)" --archive "$(ARCHIVE)"
 add-reviewer remove-reviewer info-reviewer:
 	@$(BASH_CMD) support/reviewers.sh $@ --round "$(ROUND)" --reviewer "$(REVIEWER)"
 zip:

@@ -19,6 +19,17 @@ __pycache__/
 /revised[0-9]*/*.synctex*
 /reply[0-9]*/*.synctex*
 
+# Archived sources remain trackable; generated outputs keep the same exclusions.
+/.removed-rounds/round[0-9]*-*/revised[0-9]*/paper.pdf
+/.removed-rounds/round[0-9]*-*/revised[0-9]*/paper-diff.pdf
+/.removed-rounds/round[0-9]*-*/reply[0-9]*/responses.pdf
+/.removed-rounds/round[0-9]*-*/reply[0-9]*/responses-with-diff.pdf
+/.removed-rounds/round[0-9]*-*/reply[0-9]*/editor.pdf
+/.removed-rounds/round[0-9]*-*/reply[0-9]*/editor-with-diff.pdf
+/.removed-rounds/round[0-9]*-*/reply[0-9]*/reviewer[0-9]*.pdf
+/.removed-rounds/round[0-9]*-*/revised[0-9]*/*.synctex*
+/.removed-rounds/round[0-9]*-*/reply[0-9]*/*.synctex*
+
 # Live build/mutation locks are transient. Pristine reviewer baselines are tracked.
 **/.template-lock/
 **/.paper-template.*/
