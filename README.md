@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The repo contains a reusable paper project with explicit submitted manuscripts and review rounds. 
+The repo contains a reusable template to handle the paper publication and, mainly, paper revision processes across review rounds.
 
 
 ## Motivation
