@@ -55,6 +55,15 @@ cfg() {
       } END {if (!found) print fallback}' "$file"
 }
 positive() { [[ "$1" =~ ^[1-9][0-9]*$ ]] || fail "Expected a positive integer, got: $1"; }
+require_publication() {
+    local role=
+    # Read the root file itself: Make arguments and environment overrides cannot
+    # grant permission, and calling from a reply folder uses the same policy.
+    if [ -f "$TEMPLATE_ROOT/Makefile" ] && [ -r "$TEMPLATE_ROOT/Makefile" ]; then
+        role=$(cfg "$TEMPLATE_ROOT/Makefile" PROJECT_ROLE)
+    fi
+    [ "$role" = publication ] || fail "$1 requires an initialized publication project. This folder is protected: its root Makefile must declare PROJECT_ROLE := publication. Create a project with make init-project DEST=../my-paper and run the command there."
+}
 load_reviewers() {
     local directory=$1 value id seen=' '
     value=$(cfg "$directory/Makefile" REVIEWERS '1 2')

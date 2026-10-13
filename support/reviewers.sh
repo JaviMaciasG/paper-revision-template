@@ -48,6 +48,7 @@ if [ "$command" = info-reviewer ]; then
     [ "$count" != 0 ] || printf 'No review rounds yet.\n'
     exit "$status"
 fi
+require_publication "$command"
 [ -n "$round" ] || fail 'Root reviewer management requires ROUND=N'
 positive "$round"; stage=$TEMPLATE_ROOT/reply$round
 [ -d "$stage" ] || fail "No reply stage for round $round"

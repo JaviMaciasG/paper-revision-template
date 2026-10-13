@@ -27,7 +27,8 @@ help:
 	 '  check-tools      Check required tools' '  clean            Remove auxiliaries; keep PDFs' \
 	 '  distclean        Remove generated files; keep sources and removal guards' \
 	 '  help             Show this help without TeX' 'Revision: $(REVISION)' \
-	 'PDFs: reply folder; auxiliaries: build/';
+	 'PDFs: reply folder; auxiliaries: build/' \
+	 'Adding/removing reviewers requires a publication project (root Makefile PROJECT_ROLE).';
 check-tools:
 	@$(DRIVER) check-tools --merge
 clean distclean:

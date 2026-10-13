@@ -1,4 +1,5 @@
 .DEFAULT_GOAL := all
+PROJECT_ROLE := template
 BASH_CMD ?= bash
 MANUSCRIPTS := original $(sort $(wildcard revised[0-9]*))
 REPLIES := $(sort $(wildcard reply[0-9]*))
@@ -13,9 +14,9 @@ help:
 	 '  help             Show this help without TeX' \
 	 '  check-tools      Check Bash, archive, TeX, and PDF tools' \
 	 '  init-project     Create an author project: DEST=../my-paper' \
-	 '  new-round        Create the first or next revisedN/replyN pair' \
-	 '  add-reviewer     Add the next number: ROUND=N; optional REVIEWER=X' \
-	 '  remove-reviewer  Remove an untouched scaffold: ROUND=N REVIEWER=X' \
+	 '  new-round        Create revisedN/replyN (publication projects only)' \
+	 '  add-reviewer     Add reviewer: ROUND=N; optional REVIEWER=X (publication only)' \
+	 '  remove-reviewer  Remove untouched reviewer: ROUND=N REVIEWER=X (publication only)' \
 	 '  info-reviewer    Report all rounds; optional ROUND=N' \
 	 '  bundle           Append diffs to letters; COVER=1 adds a note page' \
 	 '  zip              Create standalone manuscript source archives' \

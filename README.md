@@ -26,6 +26,14 @@ git commit -m 'Initial submitted manuscript'
 
 Submit `original/paper.pdf`, then treat the sources in `original/` as the submitted snapshot. To explore the template's already populated example instead, run `make`, `make bundle`, or `make zip` directly in the clone. Use `init-project` for your own publication rather than overwriting that demonstration.
 
+## Template protection
+
+The template clone's root Makefile declares `PROJECT_ROLE := template`. It refuses `new-round`, `add-reviewer`, and `remove-reviewer` so an accidental workflow command cannot change the demonstration's stages or reviewer membership. `init-project` automatically writes `PROJECT_ROLE := publication` into the new project's root Makefile, enabling those commands there. No separate marker file or manual activation step is needed.
+
+The shared Bash helpers read the declaration directly from the root Makefile before creating locks, temporary directories, or changing sources. The check applies at the root, inside `replyN/`, and to direct helper calls. Command-line or environment assignments such as `make new-round PROJECT_ROLE=publication` do not bypass it. A missing or invalid declaration also refuses source-changing commands.
+
+Initialization, builds, comparisons, bundles, archives, tests, help, and reviewer information remain available in the template clone. `clean` and `distclean` remain available too: they remove generated outputs while preserving source files and reviewer safety records. This protects the supplied workflow against mistakes; it does not prevent deliberate manual edits or filesystem deletion. Keep the role declaration literal and retain the template role in the clone.
+
 ## Requirements and reproducible builds
 
 Use GNU Make, Bash 3.2 or newer, and ordinary Unix utilities on Linux/macOS. Install TeX Live with pdfLaTeX, BibTeX, IEEEtran, latexmk, latexpand, and latexdiff. Source archives require `zip` and `unzip`; bundles require either Poppler's `pdfunite` or Ghostscript (`gs`). The integration tests also use `pdfinfo`/`pdftotext` when available, with Ghostscript fallbacks. Native Windows users can use WSL. No Python interpreter, pip packages, or Python helper scripts are required.
@@ -67,7 +75,7 @@ Each `revisedN/Makefile` declares its `BASELINE` and `replyN/Makefile` its `REVI
 
 ## Starting the first and later revisions
 
-From the project root, after receiving the first decision:
+From an initialized publication project's root, after receiving the first decision:
 
 ```bash
 make new-round

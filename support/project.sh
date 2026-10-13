@@ -16,6 +16,7 @@ case "$command" in
         mkdir -p -- "$(dirname -- "$destination")"
         make_temp "$(dirname -- "$destination")"; project=$TASK_TEMP/project; mkdir -- "$project"
         for name in Makefile README.md LICENSE .gitignore; do cp -p -- "$TEMPLATE_ROOT/$name" "$project/$name"; done
+        set_cfg "$project/Makefile" PROJECT_ROLE publication
         for name in support tests .github; do copy_sources "$TEMPLATE_ROOT/$name" "$project/$name"; done
         copy_sources "$TEMPLATE_SUPPORT/starter" "$project/original"
         awk '
@@ -28,6 +29,7 @@ case "$command" in
         mv -- "$project" "$destination"
         printf 'Created %s\nReplace original/paper.tex and original/paper.bib with your real manuscript and bibliography.\n' "$destination";;
     new-round)
+        require_publication "$command"
         lock "$TEMPLATE_ROOT"
         latest=0
         for directory in "$TEMPLATE_ROOT"/revised*; do

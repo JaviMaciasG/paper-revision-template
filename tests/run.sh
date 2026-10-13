@@ -25,6 +25,8 @@ init_case() {
     CASE_DIR=$TASK_TEMP
     project=$CASE_DIR/'project with spaces'; mkdir -- "$project"
     for name in Makefile README.md LICENSE .gitignore; do cp -- "$TEST_SOURCE_ROOT/$name" "$project/$name"; done
+    # Workflow fixtures model editable publication projects, not the protected clone.
+    set_cfg "$project/Makefile" PROJECT_ROLE publication
     for name in support tests .github; do copy_sources "$TEST_SOURCE_ROOT/$name" "$project/$name"; done
     for stage in original revised1 reply1; do copy_sources "$TEST_SOURCE_ROOT/tests/fixtures/$stage" "$project/$stage"; done
     # Any accidental Python use fails the command, even if Python is installed locally.
@@ -40,6 +42,7 @@ fresh_author() {
     author=$CASE_DIR/'author project'
     ok make init-project "DEST=$author"
     cd -- "$author"
+    assert_has Makefile 'PROJECT_ROLE := publication'
 }
 test_help_tools() {
     for stage in . original revised1 reply1; do
@@ -50,6 +53,73 @@ test_help_tools() {
     for stage in . original revised1 reply1; do ok env PATH="$CASE_DIR/minimal-bin" make -C "$stage" help; done
     ok make check-tools
     bad env PATH="$CASE_DIR/minimal-bin" make check-tools "BASH_CMD=$(command -v bash)"
+}
+snapshot_protected() {
+    rm -rf -- "$CASE_DIR/protected-snapshot"
+    cp -R -- "$project" "$CASE_DIR/protected-snapshot"
+}
+refused_protected() {
+    bad "$@"
+    assert_has "$CASE_DIR/command.log" 'requires an initialized publication project'
+    diff -r "$CASE_DIR/protected-snapshot" "$project" > "$CASE_DIR/protection-diff" || fail 'Protected command changed files or directories'
+}
+test_template_protection() {
+    set_cfg Makefile PROJECT_ROLE template
+    snapshot_protected
+    refused_protected make new-round
+    refused_protected make add-reviewer ROUND=1
+    refused_protected make remove-reviewer ROUND=1 REVIEWER=1
+    refused_protected make -C reply1 add-reviewer
+    refused_protected make -C reply1 remove-reviewer REVIEWER=1
+    refused_protected bash support/project.sh new-round
+    refused_protected bash support/reviewers.sh add-reviewer --round 1
+    refused_protected bash support/reviewers.sh remove-reviewer --round 1 --reviewer 1
+    refused_protected make new-round PROJECT_ROLE=publication
+    refused_protected make add-reviewer ROUND=1 PROJECT_ROLE=publication
+    refused_protected make -C reply1 remove-reviewer REVIEWER=1 PROJECT_ROLE=publication
+    refused_protected env PROJECT_ROLE=publication make -e new-round
+    refused_protected env PROJECT_ROLE=publication bash support/reviewers.sh add-reviewer --round 1
+    (cd reply1 && refused_protected bash ../support/reviewers.sh add-reviewer) || fail 'Folder-local helper bypassed protection'
+    # Even a publication declaration in a stage Makefile cannot grant permission.
+    printf '\nPROJECT_ROLE := publication\n' >> reply1/Makefile
+    snapshot_protected
+    refused_protected make -C reply1 add-reviewer
+    # Permission comes only from a valid literal declaration in the root file.
+    for role in unknown ''; do
+        set_cfg Makefile PROJECT_ROLE "$role"
+        snapshot_protected
+        refused_protected make new-round
+        refused_protected make add-reviewer ROUND=1
+        refused_protected make -C reply1 remove-reviewer REVIEWER=1
+    done
+    sed '/^PROJECT_ROLE[[:space:]]*[:?]*=/d' Makefile > Makefile.tmp; mv Makefile.tmp Makefile
+    snapshot_protected
+    refused_protected make new-round
+    refused_protected bash support/reviewers.sh remove-reviewer --round 1 --reviewer 1
+    mv Makefile "$CASE_DIR/root-Makefile"
+    snapshot_protected
+    refused_protected bash support/project.sh new-round
+    mv "$CASE_DIR/root-Makefile" Makefile
+    set_cfg Makefile PROJECT_ROLE template
+    # Non-mutating workflow commands and generated-output cleanup stay available.
+    copy_sources "$project" "$CASE_DIR/protected-sources"
+    ok make help; ok make -C reply1 help
+    ok make check-tools; ok make info-reviewer; ok make -C reply1 info-reviewer
+    ok make -j4
+    ok make bundle; ok make zip
+    ok make clean
+    assert_file original/paper.pdf; assert_file revised1/build/paper.zip
+    ok make distclean
+    assert_absent original/paper.pdf; assert_absent revised1/build
+    copy_sources "$project" "$CASE_DIR/protected-sources-after"
+    diff -r "$CASE_DIR/protected-sources" "$CASE_DIR/protected-sources-after" > "$CASE_DIR/protection-diff" || fail 'Building or cleanup changed protected sources'
+    fresh_author
+    assert_absent .paper-template-role
+    ok make new-round
+    ok make -C reply1 remove-reviewer REVIEWER=2
+    ok make add-reviewer ROUND=1
+    ok make new-round
+    assert_file revised2/paper.tex
 }
 test_build_incremental_archives() {
     ok make -j4
@@ -287,7 +357,7 @@ test_readme_walkthrough() {
         assert_absent "$guide/$stage/reviewer3.tex"
     done
 }
-CASES=(test_help_tools test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_readme_walkthrough)
+CASES=(test_help_tools test_template_protection test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_readme_walkthrough)
 if [ "${1:-}" = --case ]; then
     init_case
     "$2"
