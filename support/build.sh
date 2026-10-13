@@ -115,6 +115,11 @@ clean_outputs() {
             rm -rf -- "$file"
         done < <(find "$stage/build" -mindepth 1 -maxdepth 1 -print0)
     fi
+    # Also remove legacy/manual-build auxiliaries beside known document sources.
+    for file in "$stage"/*; do
+        [ -f "$file" ] || [ -L "$file" ] || continue
+        if generated_auxiliary "$stage" "${file##*/}"; then rm -f -- "$file"; fi
+    done
     for file in "$stage"/*.pdf; do
         [ -f "$file" ] || continue
         name=${file#"$stage"/}

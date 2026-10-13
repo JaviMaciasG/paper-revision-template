@@ -107,6 +107,26 @@ generated_pdf() {
     fi
     return 1
 }
+generated_auxiliary() {
+    local directory=$1 relative=$2 stem
+    case "$relative" in */*) return 1;; esac
+    case "$relative" in
+        *.aux|*.bbl|*.blg|*.log|*.out|*.toc|*.lof|*.lot|*.lol|*.loa|*.fls|*.fdb_latexmk|*.bcf|*.run.xml|\
+        *.idx|*.ilg|*.ind|*.acn|*.acr|*.alg|*.glg|*.glo|*.gls|*.glsdefs|*.slg|*.slo|*.sls|*.sbl|*.sym|\
+        *.nlg|*.nlo|*.nls|*.nav|*.snm|*.vrb|*.brf|*.sta|*.tdo|*.dpth|*.auxlock|*.glog|*.ptc|*.xwm|\
+        *.dvi|*.xdv|*.pdfsync|*.synctex*) ;;
+        *) return 1;;
+    esac
+    stem=${relative%%.*}
+    if [ -f "$directory/paper.tex" ]; then
+        case "$stem" in paper|paper-diff) return 0;; esac
+    fi
+    if [ -f "$directory/responses.tex" ]; then
+        case "$stem" in responses|responses-with-diff|editor|editor-with-diff|rebuttal-cover) return 0;; esac
+        [[ "$stem" =~ ^reviewer[1-9][0-9]*(-with-diff)?$ ]] && return 0
+    fi
+    return 1
+}
 generated_archive() {
     local directory=$1 relative=$2
     [ -f "$directory/paper.tex" ] || return 1

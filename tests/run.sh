@@ -546,6 +546,17 @@ test_build_incremental_archives() {
         mkdir -- "$CASE_DIR/extracted-$stage"
         (cd -- "$CASE_DIR/extracted-$stage" && unzip -q "$project/$stage/paper-$stage.zip" && make > "$CASE_DIR/extraction.log" 2>&1) || fail 'Archive did not compile independently'
         assert_file "$CASE_DIR/extracted-$stage/paper.pdf"
+        for extension in aux blg log out bbl bcf run.xml toc fls fdb_latexmk; do
+            printf 'Legacy generated auxiliary\n' > "$CASE_DIR/extracted-$stage/paper.$extension"
+        done
+        printf 'Unrelated source log\n' > "$CASE_DIR/extracted-$stage/source.log"
+        ok make -C "$CASE_DIR/extracted-$stage" clean
+        assert_file "$CASE_DIR/extracted-$stage/paper.pdf"
+        assert_file "$CASE_DIR/extracted-$stage/source.log"
+        assert_absent "$CASE_DIR/extracted-$stage/build"
+        for extension in aux blg log out bbl bcf run.xml toc fls fdb_latexmk; do
+            assert_absent "$CASE_DIR/extracted-$stage/paper.$extension"
+        done
         assert_file "$CASE_DIR/extracted-$stage/Makefile"
         assert_absent "$CASE_DIR/extracted-$stage/support"
         assert_absent "$CASE_DIR/extracted-$stage/README.md"
@@ -558,7 +569,23 @@ test_build_incremental_archives() {
     printf 'PDF figure source\n' > revised1/illustration.pdf
     printf 'Nested PDF figure source\n' > revised1/figures/paper.pdf
     printf 'Source ZIP asset\n' > revised1/figures/paper.zip
+    printf 'Source figure metadata\n' > revised1/figures/paper.out
+    printf 'Unrelated source log\n' > revised1/source.log
+    for extension in aux blg log out bbl bcf run.xml toc fls fdb_latexmk; do
+        printf 'Legacy generated auxiliary\n' > "revised1/paper.$extension"
+        printf 'Legacy generated comparison auxiliary\n' > "revised1/paper-diff.$extension"
+        printf 'Legacy generated response auxiliary\n' > "reply1/reviewer1.$extension"
+    done
+    printf 'Legacy editor auxiliary\n' > reply1/editor.out
+    printf 'Legacy combined bibliography\n' > reply1/responses.bbl
     ok make clean
+    for extension in aux blg log out bbl bcf run.xml toc fls fdb_latexmk; do
+        assert_absent "revised1/paper.$extension"
+        assert_absent "revised1/paper-diff.$extension"
+        assert_absent "reply1/reviewer1.$extension"
+    done
+    assert_absent reply1/editor.out; assert_absent reply1/responses.bbl
+    assert_file revised1/source.log; assert_file revised1/figures/paper.out
     assert_file revised1/paper-diff.pdf; assert_file revised1/paper-revised1.zip
     assert_absent revised1/build/paper.aux
     ok make distclean

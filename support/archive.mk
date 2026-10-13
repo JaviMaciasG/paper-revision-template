@@ -25,14 +25,19 @@ paper:
 help:
 	@printf '%s\n' 'Standalone manuscript sources; install latexmk and TeX Live with the required packages.' \
 		'  all / paper  Compile paper.tex; paper.pdf appears beside the source' \
-		'  clean        Remove auxiliaries; retain paper.pdf and source assets' \
+		'  clean        Remove build/ and paper auxiliaries; retain PDF and source assets' \
 		'  distclean    Also remove paper.pdf' '  help         Show available commands' \
 		'Auxiliaries: build/; bibliography: BibTeX when used by the manuscript.'
 
 clean:
 	@test ! -L build || { printf '%s\n' 'Refusing to clean a symlinked build directory' >&2; exit 1; }
 	@rm -rf -- build
-	@rm -f -- paper.synctex paper.synctex.gz
+	@for extension in aux bbl blg log out toc lof lot lol loa fls fdb_latexmk bcf run.xml \
+		idx ilg ind acn acr alg glg glo gls glsdefs slg slo sls sbl sym nlg nlo nls \
+		nav snm vrb brf sta tdo dpth auxlock glog ptc xwm dvi xdv pdfsync \
+		synctex synctex.gz 'synctex(busy)' 'synctex.gz(busy)'; do \
+		rm -f -- "paper.$$extension"; \
+	done
 
 distclean: clean
 	@rm -f -- paper.pdf
