@@ -15,14 +15,14 @@ case "$command" in
         case "$destination/" in "$TEMPLATE_ROOT/"*) fail 'Choose a destination outside the template repository';; esac
         mkdir -p -- "$(dirname -- "$destination")"
         make_temp "$(dirname -- "$destination")"; project=$TASK_TEMP/project; mkdir -- "$project"
-        for name in Makefile README.md LICENSE .gitignore; do cp -p -- "$TEMPLATE_ROOT/$name" "$project/$name"; done
+        for name in Makefile README.md HOWTO.md LICENSE .gitignore; do cp -p -- "$TEMPLATE_ROOT/$name" "$project/$name"; done
         set_cfg "$project/Makefile" PROJECT_ROLE publication
         for name in support tests; do copy_sources "$TEMPLATE_ROOT/$name" "$project/$name"; done
         copy_sources "$TEMPLATE_SUPPORT/starter" "$project/original"
         awk '
           /^# IEEE manuscript and rebuttal template$/ {print "# Manuscript project"; next}
           /^A reusable paper project/ {
-            print "This initialized author project starts with a minimal IEEE manuscript in original/. Replace original/paper.tex and original/paper.bib with your real manuscript and bibliography. There are no active revisions yet; make new-round creates round one. The guided example assets and independent test fixtures are included for reference."; next}
+            print "This initialized author project starts with a minimal IEEE manuscript in original/. Replace original/paper.tex and original/paper.bib with your real manuscript and bibliography. There are no active revisions yet; make new-round creates round one. The guided HOWTO.md, example assets, and independent test fixtures are included for reference."; next}
           {print}' "$project/README.md" > "$project/README.md.tmp"
         mv -- "$project/README.md.tmp" "$project/README.md"
         [ ! -e "$destination" ] && [ ! -L "$destination" ] || fail "Refusing to overwrite existing destination: $destination"

@@ -24,7 +24,7 @@ init_case() {
     make_temp
     CASE_DIR=$TASK_TEMP
     project=$CASE_DIR/'project with spaces'; mkdir -- "$project"
-    for name in Makefile README.md LICENSE .gitignore; do cp -- "$TEST_SOURCE_ROOT/$name" "$project/$name"; done
+    for name in Makefile README.md HOWTO.md LICENSE .gitignore; do cp -- "$TEST_SOURCE_ROOT/$name" "$project/$name"; done
     # Workflow fixtures model editable publication projects, not the protected clone.
     set_cfg "$project/Makefile" PROJECT_ROLE publication
     for name in support tests; do copy_sources "$TEST_SOURCE_ROOT/$name" "$project/$name"; done
@@ -43,6 +43,8 @@ fresh_author() {
     ok make init-project "DEST=$author"
     cd -- "$author"
     assert_has Makefile 'PROJECT_ROLE := publication'
+    assert_file HOWTO.md
+    cmp -s HOWTO.md "$TEST_SOURCE_ROOT/HOWTO.md" || fail 'Initialized project lost the guided example'
 }
 test_help_tools() {
     for stage in . original revised1 reply1; do
@@ -114,7 +116,7 @@ test_template_protection() {
     ok make -j4
     ok make bundle; ok make zip
     ok make clean
-    assert_file original/paper.pdf; assert_file revised1/build/paper.zip
+    assert_file original/paper.pdf; assert_file revised1/paper.zip
     ok make distclean
     assert_absent original/paper.pdf; assert_absent revised1/build
     copy_sources "$project" "$CASE_DIR/protected-sources-after"
@@ -181,7 +183,7 @@ TEX
     ok make -C revised1 diff
     ok make -C original zip
     mkdir "$CASE_DIR/dependency-archive"
-    (cd "$CASE_DIR/dependency-archive" && unzip -q "$author/original/build/paper.zip" && make > "$CASE_DIR/dependency-archive.log" 2>&1) || fail 'Dependency archive did not compile independently'
+    (cd "$CASE_DIR/dependency-archive" && unzip -q "$author/original/paper.zip" && make > "$CASE_DIR/dependency-archive.log" 2>&1) || fail 'Dependency archive did not compile independently'
     assert_file "$CASE_DIR/dependency-archive/support/dependencies.sh"
     assert_file "$CASE_DIR/dependency-archive/styles/localrefs.bst"
     assert_file "$CASE_DIR/dependency-archive/figures/sensor plot.pdf"
@@ -266,10 +268,10 @@ SH
 test_ignore_rules() {
     command -v git >/dev/null 2>&1 || return 0
     ok git init -q
-    for file in original/paper.aux original/paper.bcf original/paper.ind original/paper.gls original/paper.nav original/paper.synctex.gz original/paper.synctex.gz\(busy\) original/.notes.tex.swp original/.DS_Store original/Thumbs.db original/paper.bak original/paper.pdf .removed-rounds/round2-example/revised2/paper.pdf .removed-rounds/round2-example/reply2/reviewer1.pdf; do
+    for file in original/paper.aux original/paper.bcf original/paper.ind original/paper.gls original/paper.nav original/paper.synctex.gz original/paper.synctex.gz\(busy\) original/.notes.tex.swp original/.DS_Store original/Thumbs.db original/paper.bak original/paper.pdf original/paper.zip revised1/paper.zip .removed-rounds/round2-example/revised2/paper.zip .removed-rounds/round2-example/revised2/paper.pdf .removed-rounds/round2-example/reply2/reviewer1.pdf; do
         ok git -c core.excludesFile=/dev/null check-ignore -q "$file"
     done
-    for extension in tex bib bst sty cls pdf eps svg png jpg tikz ist xdy mp mf gnuplot table; do
+    for extension in tex bib bst sty cls pdf eps svg png jpg tikz ist xdy mp mf gnuplot table zip; do
         bad git -c core.excludesFile=/dev/null check-ignore -q "original/figures/source.$extension"
         bad git -c core.excludesFile=/dev/null check-ignore -q ".removed-rounds/round2-example/revised2/figures/source.$extension"
     done
@@ -455,20 +457,27 @@ test_build_incremental_archives() {
     ok make -C reply1 bundle
     assert_has revised1/build/paper-expanded.tex 'Dependency verification sentence.'
     assert_has revised1/build/paper-expanded.tex 'A revised automated build checklist'
+    # Relocate obsolete generated archives only after the replacement succeeds.
+    printf 'Legacy generated archive\n' > revised1/build/paper.zip
     ok make zip
     for stage in original revised1; do
+        assert_file "$stage/paper.zip"
+        assert_absent "$stage/build/paper.zip"
         mkdir -- "$CASE_DIR/extracted-$stage"
-        (cd -- "$CASE_DIR/extracted-$stage" && unzip -q "$project/$stage/build/paper.zip" && make > "$CASE_DIR/extraction.log" 2>&1) || fail 'Archive did not compile independently'
+        (cd -- "$CASE_DIR/extracted-$stage" && unzip -q "$project/$stage/paper.zip" && make > "$CASE_DIR/extraction.log" 2>&1) || fail 'Archive did not compile independently'
         assert_file "$CASE_DIR/extracted-$stage/paper.pdf"
         assert_file "$CASE_DIR/extracted-$stage/support/build.sh"
     done
     printf 'PDF figure source\n' > revised1/illustration.pdf
     printf 'Nested PDF figure source\n' > revised1/figures/paper.pdf
+    printf 'Source ZIP asset\n' > revised1/figures/paper.zip
     ok make clean
-    assert_file revised1/paper-diff.pdf; assert_file revised1/build/paper.zip
+    assert_file revised1/paper-diff.pdf; assert_file revised1/paper.zip
     assert_absent revised1/build/paper.aux
     ok make distclean
     assert_absent revised1/build; assert_absent reply1/responses-with-diff.pdf
+    assert_absent original/paper.zip; assert_absent revised1/paper.zip
+    assert_file revised1/figures/paper.zip
     assert_file revised1/illustration.pdf; assert_file revised1/figures/paper.pdf
     ok make -C original
     rm -rf -- original/build
@@ -646,14 +655,14 @@ check_email() {
     sed -n 's/.*\\reviewercomment{\(.*\)}.*/\1/p' "$tex" > "$CASE_DIR/tex-comments.txt"
     cmp -s "$CASE_DIR/email-comments.txt" "$CASE_DIR/tex-comments.txt" || fail "Email/TeX mismatch: $tex"
 }
-test_readme_walkthrough() {
+test_howto_walkthrough() {
     # All fenced FILE blocks are compared against the actual walkthrough assets.
     while IFS= read -r asset; do
         awk -v marker="<!-- FILE $asset -->" '
           $0==marker {found=1; next} found && /^```/ && !body {body=1; next}
-          body && /^```/ {exit} body {print}' "$project/README.md" > "$CASE_DIR/readme-file"
-        cmp -s "$CASE_DIR/readme-file" "$project/$asset" || fail "README asset differs: $asset"
-    done < <(sed -n 's/^<!-- FILE \(.*\) -->$/\1/p' "$project/README.md")
+          body && /^```/ {exit} body {print}' "$project/HOWTO.md" > "$CASE_DIR/howto-file"
+        cmp -s "$CASE_DIR/howto-file" "$project/$asset" || fail "HOWTO asset differs: $asset"
+    done < <(sed -n 's/^<!-- FILE \(.*\) -->$/\1/p' "$project/HOWTO.md")
     for round in 1 2; do
         check_email "$project/support/walkthrough/emails/round$round.txt" EDITOR "$project/support/walkthrough/reply$round/editor-comments.tex"
         if [ "$round" = 1 ]; then ids=(1 2 3); else ids=(1 3 4); fi
@@ -665,9 +674,9 @@ test_readme_walkthrough() {
         printf '#!/usr/bin/env bash\nset -e -o pipefail\n'
         awk '/^<!-- RUN -->$/ {nextblock=1; next}
           nextblock && /^```bash$/ {body=1; nextblock=0; next}
-          body && /^```/ {body=0; print ""; next} body {print}' "$project/README.md"
+          body && /^```/ {body=0; print ""; next} body {print}' "$project/HOWTO.md"
     } > "$CASE_DIR/walkthrough.sh"
-    grep -q 'init-project' "$CASE_DIR/walkthrough.sh" || fail 'README lacks the executable walkthrough'
+    grep -q 'init-project' "$CASE_DIR/walkthrough.sh" || fail 'HOWTO lacks the executable walkthrough'
     ok bash "$CASE_DIR/walkthrough.sh"
     guide=$CASE_DIR/guided-paper
     assert_file "$guide/revised2/paper.pdf"; assert_file "$guide/reply2/responses-with-diff.pdf"
@@ -701,7 +710,7 @@ test_readme_walkthrough() {
          $1=="reply2" && $3==3 && $4==1 && $5==3 && $6==4 && $7=="yes" {second=1}
          END {exit !(first && second)}' "$CASE_DIR/command.log" || fail 'Unexpected walkthrough reviewer information'
 }
-CASES=(test_help_tools test_template_protection test_manuscript_dependencies test_ignore_rules test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_readme_walkthrough)
+CASES=(test_help_tools test_template_protection test_manuscript_dependencies test_ignore_rules test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_howto_walkthrough)
 if [ "${1:-}" = --case ]; then
     init_case
     "$2"

@@ -117,6 +117,7 @@ copy_sources() {
         case "$relative" in *.aux|*.log|*.bbl|*.blg|*.fls|*.fdb_latexmk|*.synctex|*.synctex.gz|*.pyc|*~) continue;; esac
         if [ -f "$file" ]; then
             generated_pdf "$(dirname -- "$file")" "$(basename -- "$file")" && continue
+            if [ "$(basename -- "$file")" = paper.zip ] && [ -f "$(dirname -- "$file")/paper.tex" ]; then continue; fi
             mkdir -p -- "$destination/$(dirname -- "$relative")"
             cp -p -- "$file" "$destination/$relative"
         fi

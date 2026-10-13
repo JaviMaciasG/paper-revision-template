@@ -105,8 +105,9 @@ archive() {
     printf 'TYPE := manuscript\ninclude support/manuscript.mk\n' > "$staging/Makefile"
     printf '%s\n' 'Standalone manuscript sources.' 'Install GNU Make, Bash, and TeX Live (IEEEtran and latexmk).' 'Run make; paper.pdf appears beside paper.tex.' > "$staging/README.md"
     (cd -- "$staging" && zip -qr "$TASK_TEMP/paper.zip" .)
-    mv -- "$TASK_TEMP/paper.zip" "$stage/build/paper.zip"
-    printf 'Created %s\n' "$stage/build/paper.zip"
+    mv -- "$TASK_TEMP/paper.zip" "$stage/paper.zip"
+    rm -f -- "$stage/build/paper.zip"
+    printf 'Created %s\n' "$stage/paper.zip"
 }
 clean_outputs() {
     local everything=$1 file name
@@ -126,6 +127,7 @@ clean_outputs() {
             rm -f -- "${file%.pdf}.synctex" "${file%.pdf}.synctex.gz"
         fi
     done
+    if [ "$everything" = 1 ] && [ -f "$stage/paper.tex" ]; then rm -f -- "$stage/paper.zip"; fi
     if [ "$everything" = 1 ] && [ -d "$stage/build" ]; then rmdir -- "$stage/build"; fi
 }
 case "$command" in

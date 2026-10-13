@@ -21,10 +21,10 @@ help:
 	 '  remove-reviewer  Remove untouched reviewer: ROUND=N REVIEWER=X (publication only)' \
 	 '  info-reviewer    Report all rounds; optional ROUND=N' \
 	 '  bundle           Append diffs to letters; COVER=1 adds a note page' \
-	 '  zip              Create standalone manuscript source archives' \
+	 '  zip              Create manuscript source ZIPs in stage folders' \
 	 '  clean            Remove auxiliaries, retaining PDFs and ZIPs' \
 	 '  distclean        Remove generated outputs, preserving source figures and guards' \
-	 '  test             Run Bash integration tests, including the README walkthrough';
+	 '  test             Run Bash integration tests, including the HOWTO walkthrough';
 check-tools:
 	@$(BASH_CMD) support/build.sh check-tools --merge
 init-project:
