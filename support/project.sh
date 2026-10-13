@@ -20,7 +20,7 @@ case "$command" in
         for name in support tests; do copy_sources "$TEMPLATE_ROOT/$name" "$project/$name"; done
         copy_sources "$TEMPLATE_SUPPORT/starter" "$project/original"
         awk '
-          /^# (IEEE|Generic) manuscript and rebuttal template$/ {print "# Manuscript project"; next}
+          tolower($0) ~ /^# (ieee|generic) manuscript and rebuttal template$/ {print "# Manuscript Project"; next}
           /^A reusable paper project/ {
             print "This initialized author project starts with a minimal IEEE manuscript in original/. Replace original/paper.tex and original/paper.bib with your real manuscript and bibliography. There are no active revisions yet; make new-round creates round one. The guided HOWTO.md, example assets, and independent test fixtures are included for reference."; next}
           {print}' "$project/README.md" > "$project/README.md.tmp"

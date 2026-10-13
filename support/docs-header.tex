@@ -3,6 +3,7 @@
 \usepackage{xurl}
 \usepackage{etoolbox}
 \usepackage{needspace}
+\usepackage{tocloft}
 \usepackage{tcolorbox}
 \tcbuselibrary{breakable,skins}
 \DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},breaklines=true,breakanywhere=true,fontsize=\small}
@@ -29,4 +30,23 @@
   bottom=1.5mm,
   before skip=6pt,
   after skip=6pt
+}
+
+% Dotted leaders at every contents level, with slightly tighter spacing.
+\renewcommand{\cftsecdotsep}{\cftdotsep}
+\renewcommand{\cftsubsecdotsep}{\cftdotsep}
+\renewcommand{\cftsubsubsecdotsep}{\cftdotsep}
+\renewcommand{\cfttoctitlefont}{\Large\bfseries}
+\setlength{\cftbeforesecskip}{0.6em}
+\setlength{\cftbeforesubsecskip}{0pt}
+\setlength{\cftbeforesubsubsecskip}{0pt}
+\setlength{\cftparskip}{0pt}
+\AtBeginDocument{%
+  \let\DocTableOfContents\tableofcontents
+  \renewcommand{\tableofcontents}{%
+    \begingroup
+    \linespread{0.95}\selectfont
+    \DocTableOfContents
+    \endgroup
+  }%
 }

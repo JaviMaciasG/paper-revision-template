@@ -1,17 +1,11 @@
-# Generic manuscript and rebuttal template
+# Generic Manuscript and Rebuttal Template
 
-A reusable paper project with explicit submitted manuscripts and review rounds. The example IEEE paper is a short manual; its first revision demonstrates text changes and reference corrections, additions, and deletions. All names, results, and references in the examples are fictional.
+## Introduction
 
-- [Why did I generated this repo](#why-did-i-generated-this-repo)
-- [Getting started](#getting-started)
-- [The publication workflow](#the-publication-workflow)
-- [Guided example: changing reviewers across two rounds](#guided-example-changing-reviewers-across-two-rounds)
-- [Optional operations](#optional-operations)
-- [Command and file reference](#command-and-file-reference)
-- [Why I keep complete stage folders](#why-i-keep-complete-stage-folders)
-- [Validation and license](#validation-and-license)
+The repo contains a reusable paper project with explicit submitted manuscripts and review rounds. 
 
-## Why did I generated this repo
+
+## Motivation
 
 I created this repository because I was tired of the manual work involved in handling paper revisions. The process often repeats: 
 
@@ -27,7 +21,7 @@ The reviewers can change between rounds, and so can their number. I wanted a sys
 
 This template tries to automate the repetitive preparation and build tasks. It creates new review rounds, provides structured response files, builds combined and individual rebuttal letters, and generates the revised manuscript and its marked comparison with the preceding submission. The objective is letting me spend more time addressing the comments and improving the paper.
 
-## Getting started
+## Getting Started
 
 ### Requirements
 
@@ -35,7 +29,7 @@ Use GNU Make, Bash 3.2 or newer, and ordinary Unix utilities on Linux/macOS. Ins
 
 Run `make check-tools` from the clone to check your installation. `make help` works without TeX; each stage also has a help target.
 
-### Build PDF copies of the guides
+### Build PDF Copies of the Guides
 
 To read or share this README and the guided example as PDFs, install Pandoc in addition to the existing latexmk/pdfLaTeX tools and TeX Live packages (`fvextra`, `xurl`, `xcolor`, `lmodern`, `booktabs`, `longtable`, `hyperref`, `etoolbox`, `needspace`, and `tcolorbox`). These are normally supplied by the LaTeX-extra and fonts-recommended packages. No separate syntax-highlighting executable or Python interpreter is needed.
 
@@ -48,13 +42,11 @@ make README.pdf
 make HOWTO.pdf
 ```
 
-The outputs are `README.pdf` and `HOWTO.pdf` at the root. They have numbered sections, clickable contents and bookmarks, colored Bash/LaTeX/BibTeX code on very light blue-gray backgrounds, and wrapped code lines. Both PDFs show Javier Macias-Guarasa as their author, including in PDF metadata. The Markdown titles remain unnumbered in the PDFs. Generated LaTeX and auxiliaries stay in `build/docs/`. `make clean` retains the PDFs; `make distclean` removes them. These commands also work in initialized publication projects. Normal manuscript builds do not require Pandoc.
-
-### Template clone versus publication project
+### Template Clone versus Publication Project
 
 The clone contains a populated demonstration, described below. Source-changing management targets are disabled there to protect the example. Use `init-project` to create an independent, editable publication project. Details are in [protection and cleanup](#protection-cleanup-and-interrupted-operations).
 
-### Explore the supplied example
+### Explore the Supplied Example
 
 The main repository already contains sample sources for a submitted paper, its first revision, and completed rebuttal letters for two reviewers and the editor. You can build these files immediately after installing the required tools:
 
@@ -96,7 +88,7 @@ For shortcuts, run `make` at the root to build both manuscripts, the comparison,
 
 For a complete publication exercise, follow [HOWTO.md](HOWTO.md). That separate example starts with reviewers 1, 2, and 3, then changes to reviewers 1, 3, and 4 in the second round. To start your own manuscript, create a publication project as described next.
 
-### Create your publication project
+### Create Your Publication Project
 
 Clone this repository, then create an author project outside the clone.
 
@@ -110,9 +102,9 @@ make help
 
 The new project contains the build system, documentation, examples, and a minimal `original/paper.tex` and `original/paper.bib`. It has no review rounds and no Git history. **Replace both files with your real manuscript and bibliography**, keeping these filenames. The starter itself gives these instructions. See [preparing the original manuscript](#prepare-and-submit-the-original-manuscript) for where to put your sources.
 
-## The publication workflow
+## The Publication Workflow
 
-### Prepare and submit the original manuscript
+### Prepare and Submit the Original Manuscript
 
 Replace `original/paper.tex` and `original/paper.bib` with your real manuscript and bibliography. Put included TeX files, figures, and other dependencies inside `original/`; avoid dependencies outside the project. Update the title and authors, and use your publication's required IEEE options and packages.
 
@@ -130,7 +122,7 @@ git commit -m 'Initial submitted manuscript'
 
 Submit `original/paper.pdf`, then treat the sources in `original/` as the submitted snapshot.
 
-### Start the first revision
+### Start the First Revision
 
 From an initialized publication project's root, after receiving the first decision.
 
@@ -142,7 +134,7 @@ make new-round
 
 This builds `original/paper.tex`, copies its manuscript dependencies into `revised1/`, and creates `reply1/` from the response scaffold, initially with two reviewers plus the editor. The required build tools must be installed before creating a round. See the following steps to configure reviewers, edit sources, and build the submission.
 
-### Set the reviewers for this round
+### Set the Reviewers for This Round
 
 There is no fixed reviewer limit. New author projects start round 1 with reviewers 1 and 2; add or remove them to match the decision. The editor is always separate and does not count as a reviewer. The `REVIEWERS` list in the round's Makefile is authoritative. Numbers remain stable when another reviewer is removed; gaps are allowed. Prefer the targets to manual changes so membership, generated inputs, sources, and safety records remain consistent.
 
@@ -171,11 +163,11 @@ The file roles are explained under [response files and formatting](#response-fil
 
 Removal succeeds only while both the wrapper and comments file match their generated scaffolds. Configure membership before filling answers; populated files are protected. See [protection and cleanup](#protection-cleanup-and-interrupted-operations) for details.
 
-### Revise the manuscript and write responses
+### Revise the Manuscript and Write Responses
 
 Edit the current `revisedN/paper.tex`, included sources, and `revisedN/paper.bib`. Fill `replyN/metadata.tex`, `editor-comments.tex`, and each configured `reviewerX-comments.tex`. Keep the previously submitted stages unchanged.
 
-#### Response files and formatting
+#### Response Files and Formatting
 
 `reviewerX.tex` is a small standalone letter wrapper: audience, common preamble, introduction, and inclusion of `reviewerX-comments.tex`. **Put received comments and your answers in `reviewerX-comments.tex`**, which is also included in the combined letter. Newly added reviewers receive a ready-to-compile wrapper and a section with an optional overall comment plus three TODO comment/answer pairs. Add/remove items and use numbered or bulleted lists to match the actual decision. The editor gets analogous scaffolding.
 
@@ -203,7 +195,7 @@ The following LaTeX example shows numbered reviewer comments and bulleted reply 
 
 Use `itemize` for bullets, `enumerate` for numbered comments, or separate comment/answer paragraphs for unformatted messages. Escape TeX special characters in pasted emails (for example `%`, `&`, `_`, and `#`). Keep the received wording intact; list numbering is formatting, not part of the comment text. The shared introductory section and all wrappers can be customized for your publication.
 
-#### References in response letters
+#### References in Response Letters
 
 Each round's response letters use **the same `revisedN/paper.bib` as its revised manuscript**. Do not create a separate reply bibliography. Add a reply-only entry to that file if needed; the manuscript will not list it unless cited there. Use normal `\cite{key}` or `\nocite{key}` in replies, including included TeX files. `\nocite{*}` deliberately selects every database entry.
 
@@ -211,7 +203,7 @@ Bibliography declarations are inserted automatically at the end of a letter only
 
 Manuscripts retain their own normal `\bibliographystyle{IEEEtran}` and `\bibliography{paper}` declarations. With those declarations, keep `paper.bib` present even if empty; omit the declarations if the manuscript has no bibliography at all. The automatic citation-aware behavior above applies to response letters.
 
-### Build, inspect, and submit the revision
+### Build, Inspect, and Submit the Revision
 
 From the publication root, build the manuscripts, comparisons, and all response letters.
 
@@ -227,7 +219,7 @@ Inspect `revised1/paper.pdf` (clean manuscript), `revised1/paper-diff.pdf` (mark
 
 For individual build targets, see the [command reference](#make-targets). For optional explanatory covers, see [submission covers](#optional-covers-for-submission-bundles).
 
-### Start subsequent revisions
+### Start Subsequent Revisions
 
 After submitting round 1 and receiving the next decision, run the **same** root command.
 
@@ -241,13 +233,13 @@ It creates `revised2/` from `revised1/` and `reply2/` from `reply1/`. Further in
 
 Check the new decision's reviewer IDs before filling responses. Remove reviewers with no report from this round while their new scaffolds are untouched, and add newly assigned reviewers. See [setting reviewers](#set-the-reviewers-for-this-round) and the [worked second round](HOWTO.md#receive-the-second-decision-reviewers-1-3-and-4).
 
-## Guided example: changing reviewers across two rounds
+## Guided Example (HOWTO)
 
 Follow [the complete guided example in HOWTO.md](HOWTO.md) to initialize a fictional publication, answer reviewers 1, 2, and 3 in round 1, then handle reviewers 1, 3, and 4 in round 2. It includes the received emails, completed manuscript and response sources, build and submission commands, and optional round removal/restoration practice.
 
-## Optional operations
+## Optional Operations
 
-### Remove and restore a round
+### Remove and Restore a Round
 
 From a publication project's **root**, remove the latest round from the active workflow without discarding its contents.
 
@@ -284,11 +276,11 @@ After removal, `make new-round` can recreate that round number from the remainin
 
 The transfer holds project and stage locks and rolls back a completed first move if the second move fails. If rollback itself fails, the command reports the recovery location and preserves the remaining data. A forced process kill or machine shutdown can leave a partial pair and stale locks. Confirm no operation is running, inspect the active folders and archive, and move only a missing counterpart back to its original location without overwriting any existing folder. Remove stale `.template-lock` directories only after checking their owner PIDs, including locks inside the archive. Retain partial recovery data until both active folders are verified; the normal targets refuse incomplete pairs.
 
-### Worked removal and restoration example
+### Worked Removal and Restoration Example
 
 After completing the guided publication, follow [the optional removal and restoration exercise](HOWTO.md#optional-remove-and-restore-the-completed-round). It preserves the completed second round's responses and generated outputs.
 
-### Editor-only revisions
+### Editor-Only Revisions
 
 This is a separate branch of the workflow, not a step to run in the completed guided project. In a fresh author project, before filling any reviewer files.
 
@@ -306,7 +298,7 @@ make -C reply1 bundle
 
 The combined document addresses the editor, and subsequent rounds retain zero reviewers unless you add one.
 
-### Optional covers for submission bundles
+### Optional Covers for Submission Bundles
 
 A bundle normally contains the letter followed by the matching manuscript comparison. To add an explanatory cover before each letter.
 
@@ -318,9 +310,9 @@ make -C reply1 bundle COVER=1
 
 Set `COVER := 1` in the reply Makefile for a persistent default; a command-line `COVER=0` overrides it. The cover uses the same title, authors, and manuscript ID as the letters. Plain letters remain available separately.
 
-## Command and file reference
+## Command and File Reference
 
-### Folder layout and file roles
+### Folder Layout and File Roles
 
 The following plain-text overview shows the project folder layout:
 
@@ -335,7 +327,7 @@ tests/                       Bash integration tests and independent fixtures
 
 Each `revisedN/Makefile` declares its `BASELINE` and `replyN/Makefile` its `REVISION`. The defaults compare `revised1` with `original`, then `revisedN` with `revised(N-1)`. Keep `paper.tex`/`paper.bib` in every manuscript stage; this avoids selecting comparison files by ad hoc names. The comparison is always `revisedN/paper-diff.pdf`. Generated names, including stage-root `paper-<folder>.zip`, are reserved for build outputs; place PDF figures in a subdirectory such as `figures/`.
 
-### Make targets
+### Make Targets
 
 | Command | Result |
 | --- | --- |
@@ -364,13 +356,13 @@ Each `revisedN/Makefile` declares its `BASELINE` and `replyN/Makefile` its `REVI
 | `make distclean` | Remove generated outputs; preserve source figures and reviewer guards |
 | `make test` | Bash integration suite, including the executable HOWTO example |
 
-### Comparison baselines and included files
+### Comparison Baselines and Included Files
 
 Use a literal integer reviewer list and literal relative baseline/revision paths in the thin stage Makefiles. Management helpers read these declarations directly; do not replace them with computed Make expressions. To compare against a different submitted stage temporarily, use `make -C revised2 diff BASELINE=../original`; restore the usual comparison for bundles, or change the stage's `BASELINE` declaration deliberately. All manuscript dependencies must remain inside their stage for standalone source archives.
 
 Comparisons start from `paper.tex` in each selected stage. The helper builds both manuscripts, expands their literal `\input{...}` sources with `latexpand`, inserts each compiled bibliography, and runs `latexdiff` on the expanded documents. Changes in included sections and rendered bibliography entries therefore appear in `paper-diff.pdf`. An omitted inactive conditional input can produce a flattening warning; its input command is retained and skipped by TeX. Missing active inputs fail the required manuscript build before comparison.
 
-### Manuscript dependency copying and source archives
+### Manuscript Dependency Copying and Source Archives
 
 To select manuscript files, `new-round` runs latexmk on the preceding manuscript and exports its source dependencies into `build/paper.deps`. The manuscript lock covers both the build and copying. The helper reads latexmk's documented dependency export, including dependencies of BibTeX, and preserves the relative paths of required stage-local files: nested TeX inputs, figures (including PDF figures), local classes/packages, bibliography databases, and bibliography styles. Installed TeX files are identified through Kpathsea's TeX installation roots and supplied by the author's TeX installation.
 
@@ -380,13 +372,13 @@ Only dependencies used by the active build are selected. Unused assets, unrefere
 
 Manuscript source ZIPs use the same dependency collector. Archives are named `paper-<folder>.zip`, for example `original/paper-original.zip` and `revised2/paper-revised2.zip`. The ignore rules include applicable LaTeX intermediates, package caches, editor backups, and operating-system metadata adapted from the thesis template. Figure/source formats such as `.pdf`, `.eps`, `.svg`, `.tikz`, `.ist`, `.xdy`, `.mp`, and `.mf` remain trackable. Ignore rules do not grant permission to delete files; `clean` and `distclean` retain their existing source-preserving behavior.
 
-### Build behavior and reproducibility
+### Build Behavior and Reproducibility
 
 `make check-tools` checks the tools; `make help` works without TeX or Bash. Every stage has its own help target. Builds use latexmk's dependency tracking and project-owned configuration, ignoring personal latexmk configuration. PDFs and manuscript source ZIPs (`paper-<folder>.zip`) sit beside their TeX sources; auxiliaries, expanded sources, and generated bibliography/configuration files stay in each stage's `build/`. An unchanged comparison does not rebuild its PDF. Sources, citations, and bibliography dependencies are followed automatically. Undefined citations/references and missing bibliography entries fail the build.
 
 Tool versions can differ between installations, and PDF timestamps can vary across clean builds. Byte-for-byte reproducible PDFs across machines are not promised.
 
-### Protection, cleanup, and interrupted operations
+### Protection, Cleanup, and Interrupted Operations
 
 The template clone's root Makefile declares `PROJECT_ROLE := template`. It refuses `new-round`, `remove-round`, `restore-round`, `add-reviewer`, and `remove-reviewer` so an accidental workflow command cannot change the demonstration's stages or reviewer membership. `init-project` automatically writes `PROJECT_ROLE := publication` into the new project's root Makefile, enabling those commands there. No separate marker file or manual activation step is needed.
 
@@ -398,14 +390,10 @@ Reviewer removal succeeds only while **both** the wrapper and comments files are
 
 `make -j4` is supported. Helpers serialize operations on the same stage; independent stages can build concurrently. Do not edit sources while a build or stage-management operation is running. A `.template-lock` directory normally disappears automatically. If a process is killed forcibly, check its `owner` PID and confirm no operation is running before removing that stale lock directory and retrying.
 
-## Why I keep complete stage folders
+## Rationale for Folder Duplication
 
 I deliberately duplicate manuscript sources when creating a revision instead of relying only on Git tags and history. A review round is a concrete submission package: the manuscript, bibliography, response letters, and comparison baseline must be visible together. Separate folders let me build old and new submissions side by side, inspect exactly what was sent, and share a round with a collaborator who does not need to understand Git checkout mechanics. The revision's bibliography also remains the exact database used by both its manuscript and its replies.
 
 Git history is still valuable for the work inside each stage; I use commits or tags to mark submissions as well. Tags alone require checking out several revisions or using worktrees to compare or build them simultaneously, and can make it easier to compare against an unintended state. Explicit folders make the baseline a reviewable declaration in each Makefile.
 
 The tradeoffs are extra storage, duplicated files, and the risk of editing an older submitted stage by mistake. I accept that cost for a small paper project. I freeze submitted folders, edit only the active round, keep stage-local assets, and use the generated comparison to review changes. Large binary data should be managed separately with an explicit reproducible source rather than copied into every round. Shared build helpers remain centralized; submitted manuscript sources stay complete within each stage.
-
-## Validation and license
-
-`make test` checks optional documentation rendering when Pandoc is installed (numbering, highlighting, incremental builds, missing-tool errors, and cleanup), then exercises manuscript builds with Python invocation blocked, paths containing spaces, dependency-based copying of nested inputs and local styles, refreshed dependency graphs, preservation of the shared bibliography, omission of unused assets, source-safe ignore rules, incremental text/bibliography changes, citation-free and citing letters, project-role and reviewer protections, round archiving/restoration and failed-transfer recovery, editor-only rounds, covers and metadata, independent ZIP extraction, cleanup, and both complete HOWTO review rounds. HOWTO code/assets and received-comment wording are checked against the supplied walkthrough files. The tests also run from an initialized author project. The template and fictional examples are distributed under the MIT license; IEEEtran remains subject to its own license.

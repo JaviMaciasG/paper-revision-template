@@ -50,6 +50,10 @@ function Pandoc(document)
   local started = false
   for _, block in ipairs(document.blocks) do
     if block.t == 'Header' then
+      -- Begin section 1 on a new page before creating its hyperlink anchor.
+      if not started then
+        blocks:insert(pandoc.RawBlock('latex', '\\clearpage'))
+      end
       started = true
       block.level = math.max(1, block.level - 1)
       -- Reserve space before the hyperlink anchor, so jumps land on the heading's page.

@@ -1,19 +1,13 @@
-# Guided example: changing reviewers across two rounds
+# Guided Example: Changing Reviewers across Two Rounds
+
+## Introduction
+
+This HOWTO describes a fully guided example to mimic a realistic paper revision process. You can start from the template repository clone. The `support/walkthrough/` assets contain **exactly the LaTeX and BiBTeX code shown below**, so copying them reproduces the completed example without manually transcribing TeX. For your own publication, replace the example text with your manuscript and actual decision letters.
 
 [Return to the README](README.md) for setup, the general workflow, and the command reference.
 
-- [Initialize and submit the original](#initialize-and-submit-the-original)
-- [Receive the first decision: reviewers 1, 2, and 3](#receive-the-first-decision-reviewers-1-2-and-3)
-- [Revise the manuscript and answer the comments](#revise-the-manuscript-and-answer-the-comments)
-- [Build, inspect, and submit round 1](#build-inspect-and-submit-round-1)
-- [Receive the second decision: reviewers 1, 3, and 4](#receive-the-second-decision-reviewers-1-3-and-4)
-- [Update reviewers, revise, and answer the new comments](#update-reviewers-revise-and-answer-the-new-comments)
-- [Build, inspect, and submit round 2](#build-inspect-and-submit-round-2)
-- [Optional: remove and restore the completed round](#optional-remove-and-restore-the-completed-round)
 
-Everything below is fictional. Start in the template clone. The `support/walkthrough/` assets contain **exactly the text shown below**, so copying them reproduces the completed example without manually transcribing TeX. For your own publication, replace the example text with your manuscript and actual decision letters.
-
-## Initialize and submit the original
+## Initializing and Submitting the Original
 
 To initialize the example project, copy its original sources, and compile the manuscript, run the following Bash commands:
 
@@ -77,7 +71,7 @@ The BibTeX bibliography file `support/walkthrough/original/paper.bib` contains:
 }
 ```
 
-## Receive the first decision: reviewers 1, 2, and 3
+## Round 1: Receiving the First Decision (Reviewers 1, 2, and 3)
 
 A plain-text email can mix paragraphs, numbering, and bullets.
 
@@ -129,7 +123,7 @@ make add-reviewer ROUND=1
 make info-reviewer ROUND=1
 ```
 
-## Revise the manuscript and answer the comments
+## Revising the Manuscript and Answering the Comments
 
 The revised paper defines N, specifies units, calculates the mean, and acknowledges outlier limitations. Its bibliography corrects Beta's title/year, removes Gamma, adds Delta, and includes Epsilon for citations used only in rebuttals.
 
@@ -298,7 +292,7 @@ The LaTeX source file `support/walkthrough/reply1/reviewer3-comments.tex` contai
 
 Reviewers 1 and 3 have no citations and no references section. The editor cites Alpha; reviewer 2 cites Beta, Delta, and Epsilon. The combined letter lists those four references. The manuscript lists Alpha, Beta, and Delta, excluding the reply-only Epsilon entry.
 
-## Build, inspect, and submit round 1
+## Building, Inspecting, and Submitting Round 1
 
 Removing the now-populated reviewer 1 must fail. This conditional verifies that refusal while allowing the example to continue.
 
@@ -327,7 +321,7 @@ Inspect `revised1/paper.pdf`, `revised1/paper-diff.pdf`, and the five plain lett
 
 The independent archive build in `submission-check/` verifies the submitted sources. Submit the required PDFs and `revised1/paper-revised1.zip`, then freeze round 1. The source ZIP contains the manuscript's locally recorded dependencies and a minimal standalone build system, not rebuttal letters or the repository's entire history.
 
-## Receive the second decision: reviewers 1, 3, and 4
+## Round 2: Receiving the Second Decision (Reviewers 1, 3, and 4)
 
 The fictional decision email in the plain-text file `support/walkthrough/emails/round2.txt` reads:
 
@@ -371,7 +365,7 @@ The Fictional Editor
 
 Use `new-round` again; it inherits reviewers 1, 2, and 3 and replaces old answers with new TODO scaffolds. Keep reviewer 2's completed round-1 letter intact. In round 2, remove that reviewer's untouched scaffolds because no follow-up report was received, and add reviewer 4 using the number assigned in the decision. Reviewers 1 and 3 retain their numbers.
 
-## Update reviewers, revise, and answer the new comments
+## Updating Reviewers, Revising, and Answering the New Comments
 
 The removal succeeds before any edits because both reviewer 2 files still match their generated scaffolds. An edited wrapper or comments file would be protected against removal.
 
@@ -525,7 +519,7 @@ The LaTeX source file `support/walkthrough/reply2/reviewer4-comments.tex` contai
 
 Reviewers 1 and 3 remain citation-free. Reviewer 4 cites Beta and Epsilon from the inherited revised2/paper.bib; its references are included automatically in both the individual and combined letters.
 
-## Build, inspect, and submit round 2
+## Building, Inspecting, and Submitting Round 2
 
 To build and package round 2, inspect reviewer membership, and remove auxiliaries, run the following Bash commands:
 
@@ -544,7 +538,7 @@ make clean
 
 Root membership information shows three reviewers in each round: `1 2 3` in round 1 and `1 3 4` in round 2, plus the editor. Each round has five plain letters: combined, editor, and three individual reviewer letters. Reviewer 2's letter remains in reply1; reply2 has no reviewer 2 letter. Folder-local information shows round 2 alone. `revised2/paper-diff.pdf` compares with `revised1`, while the first comparison still compares with `original`. `clean` leaves PDFs, source archives, and removal guards available. Freeze round 2 after submission; use `make new-round` for a later decision.
 
-## Optional: remove and restore the completed round
+## Optional: Removing and Restoring the Completed Round
 
 Run these commands from the publication root after completing the guided example.
 

@@ -43,9 +43,21 @@ fresh_author() {
     ok make init-project "DEST=$author"
     cd -- "$author"
     assert_has Makefile 'PROJECT_ROLE := publication'
-    assert_has README.md '# Manuscript project'
+    assert_has README.md '# Manuscript Project'
     assert_file HOWTO.md
     cmp -s HOWTO.md "$TEST_SOURCE_ROOT/HOWTO.md" || fail 'Initialized project lost the guided example'
+}
+markdown_heading_number() {
+    awk -v wanted="$2" '
+      /^```/ {fence=!fence; next}
+      fence {next}
+      /^## / {section++; subsection=0; subsubsection=0; title=substr($0,4); number=section}
+      /^### / {subsection++; subsubsection=0; title=substr($0,5); number=section "." subsection}
+      /^#### / {subsubsection++; title=substr($0,6); number=section "." subsection "." subsubsection}
+      /^## / || /^### / || /^#### / {
+        if (tolower(title)==tolower(wanted)) {print number; found=1; exit}
+      }
+      END {if (!found) exit 1}' "$1"
 }
 test_documentation() {
     command -v pandoc >/dev/null 2>&1 || { printf 'Pandoc unavailable; skipping optional documentation builds.\n'; return 0; }
@@ -55,8 +67,10 @@ test_documentation() {
     pdf_text README.pdf > "$CASE_DIR/readme-pdf.txt"
     pdf_text HOWTO.pdf > "$CASE_DIR/howto-pdf.txt"
     assert_has "$CASE_DIR/readme-pdf.txt" 'Contents'
-    assert_has "$CASE_DIR/readme-pdf.txt" '3.4.1'
-    assert_has "$CASE_DIR/howto-pdf.txt" '8 Optional: remove and restore the completed round'
+    readme_section=$(markdown_heading_number README.md 'Response files and formatting')
+    howto_section=$(markdown_heading_number HOWTO.md 'Optional: remove and restore the completed round')
+    assert_has "$CASE_DIR/readme-pdf.txt" "$readme_section"
+    assert_has "$CASE_DIR/howto-pdf.txt" "$howto_section Optional: Remove and Restore the Completed Round"
     assert_has build/docs/HOWTO/HOWTO.tex '\KeywordTok{\textbackslash{}'
     if command -v mutool >/dev/null 2>&1; then
         mutool show README.pdf grep > "$CASE_DIR/document-links.txt"
@@ -94,7 +108,7 @@ test_documentation() {
     ok make -j2 docs
     assert_file README.pdf; assert_file HOWTO.pdf
     pdf_text README.pdf > "$CASE_DIR/author-readme-pdf.txt"
-    assert_has "$CASE_DIR/author-readme-pdf.txt" 'Manuscript project'
+    assert_has "$CASE_DIR/author-readme-pdf.txt" 'Manuscript Project'
 }
 test_help_tools() {
     for stage in . original revised1 reply1; do

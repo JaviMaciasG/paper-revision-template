@@ -16,7 +16,7 @@ case "$command" in
     *) fail "Unknown documentation command: $command";;
 esac
 require pandoc latexmk pdflatex kpsewhich
-for package in fvextra.sty xurl.sty xcolor.sty lmodern.sty booktabs.sty longtable.sty hyperref.sty etoolbox.sty needspace.sty tcolorbox.sty; do
+for package in fvextra.sty xurl.sty xcolor.sty lmodern.sty booktabs.sty longtable.sty hyperref.sty etoolbox.sty needspace.sty tcolorbox.sty tocloft.sty; do
     [ -n "$(kpsewhich "$package")" ] || fail "Documentation PDFs need the LaTeX package $package (install TeX Live latex-extra and fonts-recommended packages)"
 done
 lock "$TEMPLATE_ROOT"
