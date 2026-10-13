@@ -2,6 +2,16 @@
 
 A reusable paper project with explicit submitted manuscripts and review rounds. The example IEEE paper is a short manual; its first revision demonstrates text changes and reference corrections, additions, and deletions. All names, results, and references in the examples are fictional.
 
+## Why did I generated this repo
+
+I created this repository because I was tired of the manual work involved in handling paper revisions. The process often repeats: submit a manuscript, receive comments from the editor and reviewers, prepare response letters and a revised manuscript, submit them, and possibly receive another set of comments and start again.
+
+Each round involves more than editing the paper. I need to keep the previously submitted version, prepare the next version, answer every comment, and generate a document showing the differences between the two manuscripts. Depending on the journal, I may also need a single response letter covering all reviewers, separate letters for individual reviewers, or a letter for the editor.
+
+The reviewers can change between rounds, and so can their number. I wanted a system that could handle these changes while keeping each round's manuscript, response letters, bibliography, and comparison together.
+
+This template automates the repetitive preparation and build tasks. It creates new review rounds, provides structured response files, builds combined and individual rebuttal letters, and generates the revised manuscript and its marked comparison with the preceding submission. This lets me spend more time addressing the comments and improving the paper.
+
 ## Start a real publication
 
 Clone this repository, then create an author project outside the clone:
