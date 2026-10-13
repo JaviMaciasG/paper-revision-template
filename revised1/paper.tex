@@ -16,8 +16,9 @@ The example produces submission-ready documents.
 LaTeX, manuscript preparation, peer review, reproducible builds.
 \end{IEEEkeywords}
 \section{Introduction}
-Keep each submission in a separate directory, use Git to record its history,
-and build documents through Make.
+Run \texttt{make init-project DEST=../my-paper} to start your own project.
+Replace its \texttt{original/paper.tex} and \texttt{paper.bib} with your real manuscript
+and bibliography. Keep each submitted stage frozen and record its history in Git.
 The references in this manual are fictional examples, not research claims.
 The introductory workflow follows the example guide by Alpha~\cite{guide}.
 \section{Directory Structure}
@@ -47,8 +48,8 @@ Individual and combined letters reuse the same answers.
 Use \texttt{make -C reply1} to build the letters, or \texttt{make -C reply1 bundle}
 to append the comparison to each letter.
 \section{Adding a Review Round}
-Run \texttt{make new-round} from the repository root.
-This copies manuscript sources into the next revision, sets its baseline,
+Run \texttt{make new-round} from your project root after a submission.
+It starts round one from \texttt{original}, then copies the latest revision for later rounds,
 and creates fresh response placeholders. It skips generated files and refuses overwrites.
 Root commands discover new stages automatically.
 \section{Submission and Preservation}

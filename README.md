@@ -2,19 +2,35 @@
 
 A standalone publication workflow with a first submission (`original`), an example revision (`revised1`), and matching responses (`reply1`). The IEEE paper is also a short manual. All example bibliography entries are fictional.
 
-## Quick start
+## Starting your paper
 
-Clone this repository, then run:
+From a clone of the template, create a separate project:
 
 ```sh
+make init-project DEST=../my-paper
+cd ../my-paper
 make help
 make check-tools
+make
+```
+
+The destination must not already exist and must be outside the template repository. Initialization leaves the template untouched. It creates a self-contained project with only `original/` as an active manuscript stage, plus shared build tools, documentation, tests, and CI configuration. No Git history, generated PDFs, or active demonstration revisions are copied. Git initialization and commits remain your choice.
+
+The first PDF is `original/paper.pdf`. It is a minimal IEEE starter that explicitly instructs you to replace **`original/paper.tex` with your real manuscript and `original/paper.bib` with your real bibliography**, keeping those filenames. Replace the title, authors, abstract, keywords, and placeholder sections. Remove the fictional starter reference and its citation when adding your real references. Initialization always uses this minimal starter, even if the template's descriptive example has been edited.
+
+Keep included source files and figures inside `original/`. Once the original is submitted, freeze its source files and start the first revision as described below. The project is independent of the template: its builds, tests, container wrapper, and later round creation do not need the original clone.
+
+## Trying the worked example
+
+In the template repository itself, run:
+
+```sh
 make -j4
 ```
 
-Open `original/paper.pdf`, `revised1/paper.pdf`, `revised1/paper-diff.pdf`, and `reply1/responses.pdf`. The comparison uses blue underlining for additions and red strikeout for deletions. It demonstrates text changes plus an unchanged reference, a corrected reference, a removed reference, and a new reference.
+Open `original/paper.pdf`, `revised1/paper.pdf`, `revised1/paper-diff.pdf`, and `reply1/responses.pdf`. Here the IEEE paper is a descriptive manual, and the revision demonstrates text changes plus an unchanged reference, a corrected reference, a removed reference, and a new reference. Blue underlining indicates additions and red strikeout indicates deletions. The template's root example is retained for exploration; use `init-project` to start your own author project.
 
-Replace the sample manuscript, authors, bibliography, and response content with your own. Keep each manuscript's inputs and figures inside its stage folder. Finished PDFs appear beside the manuscript or response `.tex` files. Auxiliaries and generated comparison sources stay in `build/`; SyncTeX files accompany PDFs for editor navigation. Generated outputs are ignored, while PDF figure assets remain trackable. The stage-root filenames `paper.pdf`, `paper-diff.pdf`, `responses.pdf`, `editor.pdf`, `reviewerN.pdf`, and their response bundles are reserved for build outputs; put figures with these names in `figures/`.
+Finished PDFs appear beside the manuscript or response `.tex` files. Auxiliaries and generated comparison sources stay in `build/`; SyncTeX files accompany PDFs for editor navigation. Generated outputs are ignored, while PDF figure assets remain trackable. The stage-root filenames `paper.pdf`, `paper-diff.pdf`, `responses.pdf`, `editor.pdf`, `reviewerN.pdf`, and their response bundles are reserved for build outputs; put figures with these names in `figures/`.
 
 ## Local dependencies
 
@@ -50,10 +66,12 @@ CI uses the same wrapper and digest. Updating the toolchain means changing that 
 Makefile                 Discover stages and expose root commands
 support/                 Shared rules, latexmk configuration, and helpers
 original/                Initial manuscript and its own bibliography/figures
-revised1/                First revision; baseline is ../original
-reply1/                  Responses associated with ../revised1
-tests/                   Workflow checks using disposable repository copies
+revised1/                Created by new-round; baseline is ../original
+reply1/                  Created with revised1; responses for that manuscript
+tests/                   Workflow checks and fixed demonstration fixtures
 ```
+
+Initialized projects start without `revised1/` and `reply1/`; the template clone already has those demonstration folders.
 
 Root `make` builds all manuscript PDFs, revision comparisons, and combined/editor/individual response letters. It does not append comparisons to response PDFs unless you request bundles. `make help` works at the root and in every stage without Python or TeX installed.
 
@@ -67,7 +85,8 @@ Root `make` builds all manuscript PDFs, revision comparisons, and combined/edito
 | `make -C reply1 bundle` | Each letter plus the manuscript comparison |
 | `make bundle` | Bundles for every rebuttal stage |
 | `make zip` | Standalone source archives for every manuscript |
-| `make new-round` | Next numbered revision and rebuttal pair |
+| `make init-project DEST=../my-paper` | Independent project with a minimal IEEE starter |
+| `make new-round` | First or next numbered revision and rebuttal pair |
 | `make clean` | Remove auxiliaries, retaining final PDFs and ZIPs |
 | `make distclean` | Remove all generated outputs |
 | `make test` | Integration checks in temporary copies |
@@ -88,17 +107,26 @@ REVIEWERS := 1 2
 include ../support/reply.mk
 ```
 
-## Starting another round
+## First and subsequent revisions
 
-After submitting `revised1`, run:
+After submitting the original manuscript in your initialized project, run:
 
 ```sh
 make new-round
 ```
 
-This creates `revised2` from the latest manuscript sources, links it to `revised1`, and creates `reply2` with fresh comment/answer placeholders. It preserves the preceding rebuttal's metadata, formatting, reviewer/editor structure, and letter wrappers. Update `reply2/metadata.tex` for the new submission identifier. Old comments and answers in `*-comments.tex` files are cleared. Keep round-specific comments in those files, rather than custom shared inputs, so clearing remains reliable.
+With no existing revisions, this creates `revised1` from your `original` sources and `reply1` from a blank rebuttal skeleton. `revised1/Makefile` sets `original` as the comparison baseline. The rebuttal has an editor and two reviewers, with explicit placeholders rather than the demonstration's comments or answers.
 
-The helper skips generated `build/` contents, rejects symlinked sources, and refuses to overwrite existing stages or continue past an unpaired rebuttal folder. The same command later creates `revised3`/`reply3`, and so on. Only the first example round is included in the template; extra stages are created when needed. Root commands discover the new folders automatically.
+Edit `revised1/paper.tex`, its bibliography and figures as needed. Fill in `reply1/metadata.tex` with the actual manuscript title, authors, and submission ID, and enter comments and responses in the reviewer/editor files. Then build:
+
+```sh
+make -C revised1
+make -C reply1 bundle
+```
+
+After submitting `revised1`, another `make new-round` creates `revised2` and `reply2`, with `revised1` as the baseline. It preserves the preceding rebuttal's metadata, formatting, reviewer/editor structure, and letter wrappers, while clearing all old comments and answers in `*-comments.tex`. Update the new metadata for the submission identifier. Keep round-specific comments in those files, rather than custom shared inputs, so clearing remains reliable.
+
+The same command creates `revised3`/`reply3` and later rounds. It skips generated PDFs, SyncTeX files, and `build/` contents while preserving PDF figures. It rejects symlinked sources, refuses overwrites, and rejects unpaired rebuttal stages. Root commands discover each new pair automatically. In the template clone itself, the first invocation creates round two because its worked-example round one already exists.
 
 To add a reviewer, create `reviewer3-comments.tex` and a `reviewer3.tex` wrapper following the existing examples, include that comment file in `responses.tex`, and add `3` to `REVIEWERS` in the Makefile. Subsequent stages preserve this structure.
 
@@ -127,7 +155,7 @@ Review the comparison before submission: complex mathematics, tables, and figure
 
 Extract the ZIP into an empty folder and run `make`. It builds a clean manuscript without needing other rounds. Its `paper.pdf` appears beside `paper.tex`. Its source helpers are in `support/`, so cleanup cannot remove them. TeX Live's IEEEtran class and style must be installed on the recipient's system. Response PDFs and bundles are submitted separately; source ZIPs contain manuscripts only.
 
-After submission, freeze that stage's source files and record it in Git:
+If you want version control in the initialized author project, run `git init -b main` first. After submission, freeze that stage's source files and record it in Git:
 
 ```sh
 git add .
@@ -135,10 +163,10 @@ git commit -m "Record first submission"
 git tag submitted-original
 ```
 
-Use a matching tag such as `submitted-revised1` for later submissions. Build targets never commit, push, or create tags. This repository has fresh history and no dependency on the paper from which the workflow was extracted.
+Use a matching tag such as `submitted-revised1` for later submissions. Build targets never commit, push, or create tags. Initialized projects contain no copied Git history and have no dependency on the template clone or the paper from which the workflow was extracted.
 
 ## Validation and license
 
-`make test` checks fresh parallel builds, unresolved references, dependency updates, no-op comparisons, stage creation, overwrite protection, source archive extraction/compilation, help without TeX, missing-tool diagnostics, build failures, PDF placement, and cleanup that preserves PDF figures. CI retains generated PDFs and ZIPs as artifacts.
+`make test` uses fixed demonstration fixtures in temporary projects, so authors can replace the live manuscript without breaking the checks. It verifies project initialization, the minimal starter, first and subsequent revisions, fresh parallel builds, unresolved references, dependency updates, no-op comparisons, stage creation, overwrite protection, source archive extraction/compilation, help without TeX, missing-tool diagnostics, build failures, PDF placement, and cleanup that preserves PDF figures. CI retains generated PDFs and ZIPs as artifacts.
 
 The build scripts and example documents are MIT licensed. TeX Live, IEEEtran, and other tools retain their own licenses; their files are not redistributed in the source template.

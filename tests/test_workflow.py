@@ -10,6 +10,7 @@ import time
 import unittest
 import zipfile
 ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = ROOT / 'tests/fixtures'
 spec = importlib.util.spec_from_file_location('source_driver', ROOT / 'support/template.py')
 SOURCE_DRIVER = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(SOURCE_DRIVER)
@@ -18,7 +19,7 @@ spec.loader.exec_module(SOURCE_DRIVER)
 def ignore_generated(directory, names):
     directory = Path(directory)
     ignored = {'build', '.git', '__pycache__'}
-    if directory.parent == ROOT:
+    if directory.parent in (ROOT, FIXTURES):
         ignored.update(SOURCE_DRIVER.generated_pdf_names(directory))
         ignored.update(name for name in names if name.endswith(('.synctex', '.synctex.gz')))
     return ignored.intersection(names)
@@ -28,7 +29,13 @@ class Workflow(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(prefix='paper-template-test-')
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name) / 'template with spaces'
-        shutil.copytree(ROOT, self.root, ignore=ignore_generated)
+        self.root.mkdir()
+        for name in ('Makefile', 'README.md', 'LICENSE', '.gitignore'):
+            shutil.copy2(ROOT / name, self.root / name)
+        for name in ('support', 'tests', '.github'):
+            shutil.copytree(ROOT / name, self.root / name, ignore=ignore_generated)
+        for stage in ('original', 'revised1', 'reply1'):
+            shutil.copytree(FIXTURES / stage, self.root / stage, ignore=ignore_generated)
 
     def make(self, *args, cwd=None, success=True, env=None):
         r = subprocess.run(['make', *args], cwd=cwd or self.root, env=env,
@@ -169,6 +176,85 @@ class Workflow(unittest.TestCase):
         self.assertFalse((self.root / 'original/paper.synctex.gz').exists())
         self.assertFalse((self.root / 'original/build').exists())
         self.assertEqual(figure.read_bytes(), b'PDF source asset')
+
+    def test_init_project_and_first_two_rounds(self):
+        project = self.root.parent / 'my paper'
+        # Active manuscript content must not become the new project's starter.
+        source = self.root / 'original/paper.tex'
+        source.write_text('Author manuscript content that initialization must not copy.')
+        before = source.read_bytes()
+        for directory in ('support/starter', 'tests/fixtures/original'):
+            (self.root / directory / 'paper.pdf').write_bytes(b'generated preview')
+            (self.root / directory / 'paper.synctex.gz').write_bytes(b'generated sync')
+        self.make('init-project', 'DEST=' + str(project))
+        self.assertEqual(source.read_bytes(), before)
+        self.assertTrue((self.root / 'revised1').is_dir())
+        self.assertTrue((self.root / 'reply1').is_dir())
+        for name in ('revised1', 'reply1', '.git', 'original/build', 'original/paper.pdf',
+                     'support/starter/paper.pdf', 'support/starter/paper.synctex.gz',
+                     'tests/fixtures/original/paper.pdf'):
+            self.assertFalse((project / name).exists(), name)
+        self.assertIn('This initialized author project', (project / 'README.md').read_text())
+        paper = (project / 'original/paper.tex').read_text()
+        self.assertIn(r'\documentclass[journal]{IEEEtran}', paper)
+        self.assertIn(r'Replace \texttt{original/paper.tex} with your real manuscript', paper)
+        self.assertIn(r'\texttt{original/paper.bib} with your real bibliography', paper)
+        self.assertNotIn('Author manuscript content', paper)
+        bib = (project / 'original/paper.bib').read_text()
+        self.assertEqual(bib.count('@article'), 1)
+        self.assertIn('Fictional', bib)
+        self.assertTrue((project / '.github/workflows/build.yml').is_file())
+        self.assertTrue((project / 'tests/fixtures/revised1/paper.tex').is_file())
+        self.make('check-tools', 'all', cwd=project)
+        self.assertTrue((project / 'original/paper.pdf').is_file())
+        self.assertFalse((project / 'original/build/paper.pdf').exists())
+        real_paper = project / 'original/paper.tex'
+        real_paper.write_text(real_paper.read_text().replace('Your Manuscript Title', 'Author Manuscript'))
+        asset = project / 'original/figure.pdf'
+        asset.write_bytes(b'PDF figure source')
+        self.make('new-round', cwd=project)
+        self.assertEqual(real_paper.read_bytes(), (project / 'revised1/paper.tex').read_bytes())
+        self.assertEqual(asset.read_bytes(), (project / 'revised1/figure.pdf').read_bytes())
+        self.assertFalse((project / 'revised1/paper.pdf').exists())
+        self.assertIn('../original', (project / 'revised1/Makefile').read_text())
+        self.assertIn('../revised1', (project / 'reply1/Makefile').read_text())
+        for filename in ('metadata.tex', 'editor-comments.tex', 'reviewer1-comments.tex', 'reviewer2-comments.tex'):
+            self.assertIn('TODO', (project / 'reply1' / filename).read_text())
+        revised = project / 'revised1/paper.tex'
+        revised.write_text(revised.read_text().replace('Author Manuscript', 'Revised Author Manuscript'))
+        self.make('-j4', cwd=project)
+        comment = project / 'reply1/reviewer1-comments.tex'
+        comment.write_text(comment.read_text().replace('TODO: Insert the new comment.', 'Previous round comment.'))
+        metadata = project / 'reply1/metadata.tex'
+        metadata.write_text(metadata.read_text().replace('TODO: Manuscript title', 'Author Manuscript'))
+        self.make('new-round', cwd=project)
+        self.assertEqual(revised.read_bytes(), (project / 'revised2/paper.tex').read_bytes())
+        self.assertIn('../revised1', (project / 'revised2/Makefile').read_text())
+        self.assertIn('../revised2', (project / 'reply2/Makefile').read_text())
+        self.assertNotIn('Previous round comment.', (project / 'reply2/reviewer1-comments.tex').read_text())
+        self.assertEqual(metadata.read_bytes(), (project / 'reply2/metadata.tex').read_bytes())
+        self.make('-j4', cwd=project)
+        self.make('bundle', 'zip', cwd=project)
+        self.assertTrue((project / 'revised2/paper-diff.pdf').is_file())
+        self.assertTrue((project / 'reply2/responses-with-diff.pdf').is_file())
+        self.assertTrue((project / 'revised2/build/paper.zip').is_file())
+        # The project's own suite uses fixtures, not its edited active paper.
+        if not os.environ.get('PAPER_TEMPLATE_NESTED_TEST'):
+            self.make('test', cwd=project, env=dict(os.environ, PAPER_TEMPLATE_NESTED_TEST='1'))
+
+    def test_init_project_validation(self):
+        self.assertIn('Set DEST', self.make('init-project', success=False).stdout)
+        self.assertIn('Refusing to overwrite', self.make('init-project', 'DEST=' + str(self.root), success=False).stdout)
+        existing = self.root.parent / 'existing project'
+        existing.mkdir()
+        marker = existing / 'keep.txt'
+        marker.write_text('keep existing content')
+        self.make('init-project', 'DEST=' + str(existing), success=False)
+        self.assertEqual(marker.read_text(), 'keep existing content')
+        internal = self.root / 'nested project'
+        result = self.make('init-project', 'DEST=' + str(internal), success=False)
+        self.assertIn('outside the template', result.stdout)
+        self.assertFalse(internal.exists())
 
     def test_failures(self):
         r = self.make('-C', 'revised1', 'diff', 'BASELINE=../missing', success=False)

@@ -186,6 +186,52 @@ def source_files(stage):
             yield p
 
 
+def ignore_project_outputs(directory, names):
+    stage = Path(directory)
+    ignored = {'build', '.git', '__pycache__'} | generated_pdf_names(stage)
+    ignored.update(name for name in names if name.endswith(('.pyc', '.synctex', '.synctex.gz')))
+    return ignored.intersection(names)
+
+
+def init_project(destination_value):
+    if not destination_value:
+        raise ValueError('Set DEST to a new project folder, for example make init-project DEST=../my-paper.')
+    requested = Path(destination_value).expanduser()
+    if requested.exists() or requested.is_symlink():
+        raise ValueError('Refusing to overwrite existing destination: ' + str(requested))
+    destination = requested.resolve()
+    if destination.is_relative_to(ROOT):
+        raise ValueError('Choose a destination outside the template repository.')
+    if not (HELPERS / 'starter' / 'paper.tex').is_file():
+        raise ValueError('The minimal manuscript starter is missing.')
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    # Assemble a complete project before exposing the destination.
+    with tempfile.TemporaryDirectory(prefix='.init-project-', dir=destination.parent) as temp:
+        project = Path(temp) / 'project'
+        project.mkdir()
+        for name in ('Makefile', 'README.md', 'LICENSE', '.gitignore'):
+            shutil.copy2(ROOT / name, project / name)
+        for name in ('support', 'tests', '.github'):
+            shutil.copytree(ROOT / name, project / name,
+                            ignore=ignore_project_outputs)
+        shutil.copytree(HELPERS / 'starter', project / 'original', ignore=ignore_project_outputs)
+        readme = project / 'README.md'
+        text = readme.read_text()
+        text = text.replace('# IEEE manuscript and rebuttal template', '# Manuscript project', 1)
+        readme.write_text(text.replace(
+            'A standalone publication workflow with a first submission (`original`), an example revision (`revised1`), and matching responses (`reply1`). The IEEE paper is also a short manual. All example bibliography entries are fictional.',
+            'This initialized author project starts with a minimal IEEE manuscript in `original/`. '
+            'Replace `original/paper.tex` and `original/paper.bib` with your real manuscript and bibliography. '
+            'There are no active revision folders yet; `make new-round` creates round one. '
+            'The worked example is included only as isolated test fixtures.', 1))
+        if destination.exists() or destination.is_symlink():
+            raise ValueError('Refusing to overwrite existing destination: ' + str(destination))
+        project.rename(destination)
+    print('Created project: ' + str(destination))
+    print('Replace original/paper.tex and original/paper.bib with your real manuscript and bibliography.')
+    print('After submitting the original manuscript, run make new-round in the new project.')
+
+
 def next_round():
     # Lock outside the source tree, so help/clone do not depend on generated state.
     lockname = 'paper-template-' + hashlib.sha256(str(ROOT).encode()).hexdigest()[:16] + '.lock'
@@ -205,7 +251,7 @@ def next_round():
                           and not (ROOT / ('revised' + p.name[5:])).is_dir()]
         if orphan_replies:
             raise ValueError('Unpaired reply stages: ' + ', '.join(orphan_replies))
-        previous_reply = ROOT / f'reply{number}'
+        previous_reply = ROOT / f'reply{number}' if number else HELPERS / 'reply-skeleton'
         if not previous_reply.is_dir():
             raise ValueError('No preceding rebuttal structure found: ' + str(previous_reply))
         manuscript_sources = list(source_files(previous))
@@ -324,7 +370,8 @@ def clean(stage, everything=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['paper', 'diff', 'reply', 'bundle', 'check-tools',
-                                            'new-round', 'zip', 'clean', 'distclean'])
+                                            'init-project', 'new-round', 'zip', 'clean', 'distclean'])
+    parser.add_argument('--dest')
     parser.add_argument('--baseline')
     parser.add_argument('--revision')
     parser.add_argument('--letters', nargs='+', default=['responses', 'editor', 'reviewer1', 'reviewer2'])
@@ -338,6 +385,7 @@ def main():
         elif args.command == 'reply': replies(stage, args.letters)
         elif args.command == 'bundle': bundle(stage, args.revision, args.letters)
         elif args.command == 'check-tools': check_tools(args.diff, args.merge)
+        elif args.command == 'init-project': init_project(args.dest)
         elif args.command == 'new-round': next_round()
         elif args.command == 'zip': archive(stage)
         elif args.command in ('clean', 'distclean'): clean(stage, args.command == 'distclean')

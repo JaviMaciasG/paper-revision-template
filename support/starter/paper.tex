@@ -1,0 +1,35 @@
+\documentclass[journal]{IEEEtran}
+\usepackage[T1]{fontenc}
+\usepackage{url}
+\title{Your Manuscript Title}
+\author{Your Name}
+\begin{document}
+\maketitle
+\begin{abstract}
+Replace this placeholder with the abstract of your real manuscript.
+\end{abstract}
+\begin{IEEEkeywords}
+Replace these keywords with your manuscript's keywords.
+\end{IEEEkeywords}
+\section{Getting Started}
+This is a minimal IEEE starter, not a manuscript ready for submission.
+Replace \texttt{original/paper.tex} with your real manuscript and
+\texttt{original/paper.bib} with your real bibliography. Keep the filenames
+\texttt{paper.tex} and \texttt{paper.bib} so the supplied build rules work.
+Replace the title, author, abstract, keywords, and all placeholder sections.
+The citation below is fictional; remove it when you add your real references~\cite{placeholder}.
+\section{Introduction}
+Replace this section with your manuscript's introduction and add the sections you need.
+Keep included source files and figures inside \texttt{original/}.
+Run \texttt{make} from the project root to build \texttt{original/paper.pdf}.
+\section{Preparing Revisions}
+After submitting the original manuscript, freeze its sources and run
+\texttt{make new-round}. This creates \texttt{revised1} and \texttt{reply1}.
+Edit the revised manuscript and fill in the rebuttal metadata, comments, and answers.
+Run \texttt{make} to build the documents or \texttt{make bundle} to append comparisons.
+Use \texttt{make new-round} again for each later review round.
+\section{Conclusion}
+Replace this section with your manuscript's conclusions.
+\bibliographystyle{IEEEtran}
+\bibliography{paper}
+\end{document}

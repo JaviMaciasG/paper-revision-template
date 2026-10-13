@@ -3,14 +3,16 @@ PYTHON ?= python3
 MANUSCRIPTS := original $(sort $(wildcard revised[0-9]*))
 REPLIES := $(sort $(wildcard reply[0-9]*))
 STAGES := $(MANUSCRIPTS) $(REPLIES)
-.PHONY: all help check-tools new-round zip clean distclean test container container-bundle bundle $(STAGES)
+.PHONY: all help check-tools init-project new-round zip clean distclean test container container-bundle bundle $(STAGES)
 all: $(STAGES)
 $(STAGES):
 	+$(MAKE) -C $@ all
 help:
-	@printf '%s\n' 'IEEE manuscript and rebuttal template' 	  '  all             Build PDFs beside TeX sources; auxiliaries stay in build/ (default)' 	  '  help            Show commands; no TeX installation needed' 	  '  check-tools     Check compilation, comparison and bundle dependencies' 	  '  new-round       Create the next revisedN/replyN pair without overwriting' 	  '  bundle          Append the revision diff to each response letter' 	  '  zip             Create standalone manuscript source archives' 	  '  clean           Remove auxiliary outputs, retaining final PDFs and ZIPs' 	  '  distclean       Remove all generated outputs' 	  '  test            Run workflow integration checks in temporary copies' 	  '  container       Build all documents in the pinned container' 	  '  container-bundle Build response bundles in the pinned container' 	  'Examples: make -C revised1 diff; make -C reply1 reviewer1; make -j4';
+	@printf '%s\n' 'IEEE manuscript and rebuttal template' 	  '  all             Build PDFs beside TeX sources; auxiliaries stay in build/ (default)' 	  '  help            Show commands; no TeX installation needed' 	  '  check-tools     Check compilation, comparison and bundle dependencies' 	  '  init-project    Create a minimal author project: make init-project DEST=../my-paper' '  new-round       Create round 1 or the next revisedN/replyN pair without overwriting' 	  '  bundle          Append the revision diff to each response letter' 	  '  zip             Create standalone manuscript source archives' 	  '  clean           Remove auxiliary outputs, retaining final PDFs and ZIPs' 	  '  distclean       Remove all generated outputs' 	  '  test            Run workflow integration checks in temporary copies' 	  '  container       Build all documents in the pinned container' 	  '  container-bundle Build response bundles in the pinned container' 	  'Examples: make -C revised1 diff; make -C reply1 reviewer1; make -j4';
 check-tools:
 	@$(PYTHON) support/template.py check-tools --merge
+init-project:
+	@$(PYTHON) support/template.py init-project --dest "$(DEST)"
 new-round:
 	@$(PYTHON) support/template.py new-round
 zip:
