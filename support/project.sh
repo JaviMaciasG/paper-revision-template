@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh" || exit 1
+source "$TEMPLATE_SUPPORT/managed.sh" || exit 1
 setup_traps
 command=${1:-}; [ "$#" -gt 0 ] && shift
-destination=
+destination= reviewers_given=0 reviewers_value=
 while [ "$#" -gt 0 ]; do
-    case "$1" in --dest) [ "$#" -ge 2 ] || fail 'Missing DEST'; destination=$2; shift 2;; *) fail "Unknown option: $1";; esac
+    case "$1" in --dest) [ "$#" -ge 2 ] || fail 'Missing DEST'; destination=$2; shift 2;; --reviewers) [ "$#" -ge 2 ] || fail "Missing REVIEWERS"; reviewers_given=1; reviewers_value=$2; shift 2;; *) fail "Unknown option: $1";; esac
  done
 case "$command" in
     init-project)
@@ -19,26 +20,26 @@ case "$command" in
         set_cfg "$project/Makefile" PROJECT_ROLE publication
         for name in support tests; do copy_sources "$TEMPLATE_ROOT/$name" "$project/$name"; done
         copy_sources "$TEMPLATE_SUPPORT/starter" "$project/original"
-        awk '
-          tolower($0) ~ /^# (ieee|generic) manuscript and rebuttal template$/ {print "# Manuscript Project"; next}
-          /^A reusable paper project/ {
-            print "This initialized author project starts with a minimal IEEE manuscript in original/. Replace original/paper.tex and original/paper.bib with your real manuscript and bibliography. There are no active revisions yet; make new-round creates round one. The guided HOWTO.md, example assets, and independent test fixtures are included for reference."; next}
-          {print}' "$project/README.md" > "$project/README.md.tmp"
-        mv -- "$project/README.md.tmp" "$project/README.md"
+        publication_readme "$project/README.md"
+        record_managed "$project"
         [ ! -e "$destination" ] && [ ! -L "$destination" ] || fail "Refusing to overwrite existing destination: $destination"
         mv -- "$project" "$destination"
-        printf 'Created %s\nReplace original/paper.tex and original/paper.bib with your real manuscript and bibliography.\n' "$destination";;
+        printf 'Created %s\nNext steps:\n  1. Replace original/paper.tex and original/paper.bib; keep dependencies inside original/.\n  2. Enter your project: cd %q\n  3. Build: make current\n  4. Prepare original submission: make submission\n  5. After receiving reviews: make new-round REVIEWERS="1 2"\nSee HOWTO.md for a complete example.\n' "$destination" "$destination";;
     new-round)
         require_publication "$command"
+        # Validate explicit membership before locks, builds, or copies.
+        explicit_ids=(); seen=' '
+        if [ "$reviewers_given" = 1 ]; then
+            [[ "$reviewers_value" =~ ^[[:space:]0-9]*$ ]] || fail "REVIEWERS must be a space-separated list of positive integers"
+            for id in $reviewers_value; do
+                positive "$id"
+                case "$seen" in *" $id "*) fail "Duplicate reviewer $id";; esac
+                seen="$seen$id "; explicit_ids+=("$id")
+            done
+        fi
         lock "$TEMPLATE_ROOT"
-        latest=0
-        for directory in "$TEMPLATE_ROOT"/revised*; do
-            [ -d "$directory" ] || continue
-            name=${directory##*/}
-            if [[ "$name" =~ ^revised([1-9][0-9]*)$ ]]; then
-                id=${BASH_REMATCH[1]}; [ "$id" -le "$latest" ] || latest=$id
-            fi
-        done
+        active_rounds
+        latest=$LATEST_ROUND
         if [ "$latest" = 0 ]; then previous=$TEMPLATE_ROOT/original; previous_reply=$TEMPLATE_SUPPORT/reply-skeleton
         else previous=$TEMPLATE_ROOT/revised$latest; previous_reply=$TEMPLATE_ROOT/reply$latest; fi
         [ -f "$previous/paper.tex" ] || fail "Latest manuscript is missing: $previous"
@@ -54,6 +55,7 @@ case "$command" in
         [ ! -e "$revision" ] && [ ! -e "$reply" ] || fail "Refusing to overwrite revised$next or reply$next"
         validate_reply "$previous_reply"
         ids=("${REVIEWER_IDS[@]}")
+        [ "$reviewers_given" = 0 ] || ids=("${explicit_ids[@]}")
         cover=$(cfg "$previous_reply/Makefile" COVER 0)
         [[ "$cover" = 0 || "$cover" = 1 ]] || fail 'COVER must be 0 or 1'
         make_temp "$TEMPLATE_ROOT"; new_revision=$TASK_TEMP/revised$next; new_reply=$TASK_TEMP/reply$next
@@ -69,11 +71,18 @@ case "$command" in
                 case " ${ids[*]} " in *" $id "*) ;; *) rm -f -- "$file" "$new_reply/.reviewer-scaffolds/reviewer$id.tex" "$new_reply/.reviewer-scaffolds/reviewer$id-comments.tex";; esac
             fi
         done
+        for id in "${ids[@]}"; do
+            if [ ! -f "$new_reply/reviewer$id.tex" ]; then
+                reviewer_wrapper "$id" "$new_reply/reviewer$id.tex"
+                mkdir -p -- "$new_reply/.reviewer-scaffolds"
+                cp -p -- "$new_reply/reviewer$id.tex" "$new_reply/.reviewer-scaffolds/reviewer$id.tex"
+            fi
+        done
         for identity in editor $(printf 'reviewer%s ' "${ids[@]}"); do
             # printf with an empty array would produce 'reviewer'; skip it.
             [ "$identity" != reviewer ] || continue
             file=$new_reply/$identity-comments.tex
-            style=$(sed -n -e 's/.*\\begin{enumerate}.*/enumerate/p' -e 's/.*\\begin{itemize}.*/itemize/p' "$file" | head -1)
+            style=$(sed -n -e 's/.*\\begin{enumerate}.*/enumerate/p' -e 's/.*\\begin{itemize}.*/itemize/p' "$file" 2>/dev/null | head -1 || :)
             [ -n "$style" ] || style=enumerate
             scaffold "$identity" "$style" "$file"
         done
@@ -94,6 +103,8 @@ case "$command" in
         unlock "$previous_reply"
         mv -- "$new_revision" "$revision"
         if ! mv -- "$new_reply" "$reply"; then rm -rf -- "$revision"; fail 'Unable to publish reply stage; revision creation rolled back'; fi
-        printf 'Created revised%s and reply%s; baseline is %s.\nUpdate metadata and fill the new response scaffolds.\n' "$next" "$next" "${previous##*/}";;
+        printf 'Created revised%s and reply%s; baseline is %s.\nReviewers: %s (editor separate).\nResponse files to fill:\n  reply%s/editor-comments.tex\n' "$next" "$next" "${previous##*/}" "${ids[*]:-(none)}" "$next"
+        for id in "${ids[@]}"; do printf '  reply%s/reviewer%s-comments.tex\n' "$next" "$id"; done
+        printf 'Next steps:\n  1. Edit revised%s/paper.tex, included sources, and the bibliography if used.\n  2. Update reply%s/metadata.tex with the title, authors, and manuscript ID.\n  3. Fill the response files listed above.\n  4. Inspect: make status\n  5. Build: make current\n  6. Prepare submission: make submission\n' "$next" "$next";;
     *) fail "Unknown project command: $command";;
 esac

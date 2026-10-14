@@ -147,3 +147,6 @@ Thumbs.db
 # Rendered project guides; Markdown sources remain tracked.
 /README.pdf
 /HOWTO.pdf
+
+# Updater backups are local; the managed-file manifest remains trackable.
+/.template-update/backups/

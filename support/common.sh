@@ -180,3 +180,32 @@ reply_inputs() {
     for id in "${REVIEWER_IDS[@]}"; do printf '\\input{reviewer%s-comments.tex}\n' "$id" >> "$stage/build/reviewer-inputs.tex.tmp"; done
     update_file "$stage/build/reviewer-inputs.tex.tmp" "$stage/build/reviewer-inputs.tex"
 }
+
+# Discover paired active rounds numerically and reject structurally invalid stages.
+active_rounds() {
+    local directory name id baseline revision
+    ACTIVE_ROUNDS=(); LATEST_ROUND=0
+    [ -f "$TEMPLATE_ROOT/original/paper.tex" ] || fail 'Missing original/paper.tex'
+    [ ! -L "$TEMPLATE_ROOT/original" ] || fail 'Stage symlinks are not supported: original'
+    for directory in "$TEMPLATE_ROOT"/revised* "$TEMPLATE_ROOT"/reply*; do
+        [ -e "$directory" ] || [ -L "$directory" ] || continue
+        name=${directory##*/}
+        [[ "$name" =~ ^(revised|reply)([1-9][0-9]*)$ ]] || continue
+        id=${BASH_REMATCH[2]}
+        [ -d "$directory" ] && [ ! -L "$directory" ] || fail "Invalid stage directory: $name"
+        [ -d "$TEMPLATE_ROOT/revised$id" ] && [ -d "$TEMPLATE_ROOT/reply$id" ] || fail "Unpaired stage: $name"
+        [ -f "$TEMPLATE_ROOT/revised$id/paper.tex" ] || fail "Missing revised$id/paper.tex"
+        [ -f "$TEMPLATE_ROOT/revised$id/Makefile" ] && [ -f "$TEMPLATE_ROOT/reply$id/Makefile" ] || fail "Missing Makefile in round $id"
+        baseline=$(cfg "$TEMPLATE_ROOT/revised$id/Makefile" BASELINE)
+        revision=$(cfg "$TEMPLATE_ROOT/reply$id/Makefile" REVISION)
+        [ -n "$baseline" ] && [ -f "$(canonical "$TEMPLATE_ROOT/revised$id/$baseline")/paper.tex" ] || fail "Missing baseline for revised$id"
+        [ -n "$revision" ] && [ "$(canonical "$TEMPLATE_ROOT/reply$id/$revision")" = "$TEMPLATE_ROOT/revised$id" ] || fail "Invalid REVISION for reply$id"
+    done
+    while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        ACTIVE_ROUNDS+=("$id"); LATEST_ROUND=$id
+    done < <(for directory in "$TEMPLATE_ROOT"/revised*; do
+        [ -d "$directory" ] || continue; name=${directory##*/}
+        [[ "$name" =~ ^revised([1-9][0-9]*)$ ]] && printf '%s\n' "${BASH_REMATCH[1]}"
+    done | sort -n)
+}

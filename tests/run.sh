@@ -67,15 +67,16 @@ test_documentation() {
     pdf_text README.pdf > "$CASE_DIR/readme-pdf.txt"
     pdf_text HOWTO.pdf > "$CASE_DIR/howto-pdf.txt"
     assert_has "$CASE_DIR/readme-pdf.txt" 'Contents'
+    assert_has "$CASE_DIR/readme-pdf.txt" 'Javier Macias-Guarasa'
     readme_section=$(markdown_heading_number README.md 'Response files and formatting')
-    howto_section=$(markdown_heading_number HOWTO.md 'Optional: remove and restore the completed round')
+    howto_section=$(markdown_heading_number HOWTO.md 'Optional: removing and restoring the completed round')
     assert_has "$CASE_DIR/readme-pdf.txt" "$readme_section"
-    assert_has "$CASE_DIR/howto-pdf.txt" "$howto_section Optional: Remove and Restore the Completed Round"
+    assert_has "$CASE_DIR/howto-pdf.txt" "$howto_section Optional: Removing and Restoring the Completed Round"
     assert_has build/docs/HOWTO/HOWTO.tex '\KeywordTok{\textbackslash{}'
     if command -v mutool >/dev/null 2>&1; then
         mutool show README.pdf grep > "$CASE_DIR/document-links.txt"
-        assert_has "$CASE_DIR/document-links.txt" '/D(receive-the-second-decision-reviewers-1-3-and-4)'
-        assert_has "$CASE_DIR/document-links.txt" '/D(optional-remove-and-restore-the-completed-round)'
+        assert_has "$CASE_DIR/document-links.txt" '/D(round-2-receiving-the-second-decision-reviewers-1-3-and-4)'
+        assert_has "$CASE_DIR/document-links.txt" '/D(optional-removing-and-restoring-the-completed-round)'
     fi
     cp README.pdf "$CASE_DIR/unchanged-readme.pdf"
     ok make -q README.pdf HOWTO.pdf
@@ -354,6 +355,8 @@ test_ignore_rules() {
     bad git -c core.excludesFile=/dev/null check-ignore -q reply1/.reviewer-scaffolds/reviewer1.tex
     bad git -c core.excludesFile=/dev/null check-ignore -q README.md
     bad git -c core.excludesFile=/dev/null check-ignore -q HOWTO.md
+    ok git -c core.excludesFile=/dev/null check-ignore -q .template-update/backups/update-example/old/Makefile
+    bad git -c core.excludesFile=/dev/null check-ignore -q .template-update/manifest
     bad git -c core.excludesFile=/dev/null check-ignore -q .vscode/tasks.json
 }
 capture_archive() {
@@ -824,7 +827,191 @@ test_howto_walkthrough() {
          $1=="reply2" && $3==3 && $4==1 && $5==3 && $6==4 && $7=="yes" {second=1}
          END {exit !(first && second)}' "$CASE_DIR/command.log" || fail 'Unexpected walkthrough reviewer information'
 }
-CASES=(test_help_tools test_documentation test_template_protection test_manuscript_dependencies test_ignore_rules test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_howto_walkthrough)
+test_workflow_commands() {
+    fresh_author
+    assert_has "$CASE_DIR/command.log" 'make current'
+    assert_file .template-update/manifest
+    mkdir "$CASE_DIR/no-tex"
+    for tool in latexmk pdflatex bibtex pandoc; do
+        printf '#!/bin/sh\necho "Unexpected build during status" >&2\nexit 88\n' > "$CASE_DIR/no-tex/$tool"
+        chmod +x "$CASE_DIR/no-tex/$tool"
+    done
+    ok env PATH="$CASE_DIR/no-tex:$PATH" make status
+    assert_has "$CASE_DIR/command.log" 'Latest round: 0'
+    assert_absent original/paper.pdf
+    ok make current
+    assert_file original/paper.pdf
+    assert_absent original/paper-original.zip
+    ok make submission
+    assert_file original/paper-original.zip
+    bad make submission ROUND=0
+    bad make submission ROUND=2
+    bad make new-round 'REVIEWERS=1 1'
+    bad make new-round 'REVIEWERS=1 bad'
+    bad make new-round 'REVIEWERS=*'
+    assert_absent revised1
+    ok make new-round 'REVIEWERS=1 2 3'
+    assert_has "$CASE_DIR/command.log" 'Reviewers: 1 2 3'
+    assert_has reply1/Makefile 'REVIEWERS := 1 2 3'
+    assert_file reply1/reviewer3.tex
+    assert_file reply1/.reviewer-scaffolds/reviewer3.tex
+    assert_has reply1/reviewer3-comments.tex 'TODO'
+    assert_has "$CASE_DIR/command.log" 'reply1/reviewer3-comments.tex'
+    printf '\nOld submitted round.\n' >> reply1/reviewer2-comments.tex
+    sed 's/{enumerate}/{itemize}/g' reply1/reviewer1-comments.tex > "$CASE_DIR/list-style"
+    mv "$CASE_DIR/list-style" reply1/reviewer1-comments.tex
+    cp reply1/reviewer2-comments.tex "$CASE_DIR/old-comments"
+    ok make new-round 'REVIEWERS=1 3 4'
+    assert_has reply2/Makefile 'REVIEWERS := 1 3 4'
+    assert_has reply2/reviewer1-comments.tex '\begin{itemize}'
+    assert_absent reply2/reviewer2.tex
+    assert_file reply2/reviewer4.tex
+    cmp -s reply1/reviewer2-comments.tex "$CASE_DIR/old-comments" || fail 'Reviewer selection changed old answers'
+    ok make -C reply2 remove-reviewer REVIEWER=4
+    ok make -C reply2 add-reviewer REVIEWER=4
+    ok env PATH="$CASE_DIR/no-tex:$PATH" make status
+    assert_has "$CASE_DIR/command.log" 'Latest round: 2'
+    assert_has "$CASE_DIR/command.log" 'reply2/reviewer4-comments.tex:'
+    assert_not "$CASE_DIR/command.log" '.reviewer-scaffolds/'
+    ok make current
+    assert_file revised2/paper.pdf; assert_file revised2/paper-diff.pdf
+    assert_file reply2/reviewer4.pdf
+    assert_absent reply1/responses.pdf
+    assert_absent revised1/paper-diff.pdf
+    ok make submission ROUND=1 COVER=1
+    assert_file reply1/reviewer3-with-diff.pdf
+    assert_absent reply2/responses-with-diff.pdf
+    assert_has "$CASE_DIR/command.log" 'revised1/paper-revised1.zip'
+    ok make submission
+    assert_file reply2/reviewer4-with-diff.pdf
+    ok make new-round
+    assert_has reply3/Makefile 'REVIEWERS := 1 3 4'
+    ok make new-round 'REVIEWERS='
+    assert_has reply4/Makefile 'REVIEWERS := '
+    assert_absent reply4/reviewer1.tex
+    ok make current
+    assert_file reply4/editor.pdf; assert_file reply4/responses.pdf
+    ok make submission COVER=0
+    assert_file reply4/responses-with-diff.pdf
+    # Numeric ordering, not lexical ordering; avoid creating unnecessary rounds.
+    cp -R revised2 revised10; cp -R reply2 reply10
+    set_cfg reply10/Makefile REVISION ../revised10
+    ok make status; assert_has "$CASE_DIR/command.log" 'Latest round: 10'
+    rm -f reply10/responses.pdf
+    ok make current; assert_file reply10/responses.pdf
+    mkdir reply11
+    bad make status; assert_has "$CASE_DIR/command.log" 'Unpaired stage: reply11'
+    bad make current
+    rmdir reply11
+    rm reply10/reviewer4.tex
+    bad make status; assert_has "$CASE_DIR/command.log" 'Missing files for reviewer 4'
+}
+
+test_project_updates() {
+    fresh_author
+    # A local template checkout works even when this suite runs in an author project.
+    incoming_template=$CASE_DIR/incoming-template
+    copy_sources "$TEST_SOURCE_ROOT" "$incoming_template"
+    set_cfg "$incoming_template/Makefile" PROJECT_ROLE template
+    copy_sources "$author" "$CASE_DIR/before-preview"
+    ok make update-template "FROM=$incoming_template"
+    assert_has "$CASE_DIR/command.log" 'Preview only'
+    copy_sources "$author" "$CASE_DIR/after-preview"
+    diff -r "$CASE_DIR/before-preview" "$CASE_DIR/after-preview" > "$CASE_DIR/update-diff" || fail 'Update preview changed project files'
+    ok make update-template "FROM=$incoming_template" APPLY=1
+    assert_has "$CASE_DIR/command.log" 'Infrastructure already matches'
+    assert_absent .template-update/backups
+    ok make new-round 'REVIEWERS=1'
+    printf '\nAuthor response formatting retained.\n' >> reply1/introduction.tex
+    copy_sources reply1 "$CASE_DIR/reply-before-update"
+    printf '\n# Updated helper.\n' >> "$incoming_template/support/build.sh"
+    printf '\nCustomized author README.\n' >> README.md
+    printf '\n# My custom ignores.\n*.author-private\n' >> .gitignore
+    cp original/paper.tex "$CASE_DIR/manuscript-before"
+    cp README.md "$CASE_DIR/readme-before"
+    ok make update-template "FROM=$incoming_template" APPLY=1
+    cmp -s original/paper.tex "$CASE_DIR/manuscript-before" || fail 'Update changed manuscript'
+    cmp -s README.md "$CASE_DIR/readme-before" || fail 'Update replaced customized documentation'
+    copy_sources reply1 "$CASE_DIR/reply-after-update"
+    diff -r "$CASE_DIR/reply-before-update" "$CASE_DIR/reply-after-update" > "$CASE_DIR/reply-update-diff" || fail 'Update changed response sources or formatting'
+    assert_has support/build.sh '# Updated helper.'
+    assert_has .gitignore '*.author-private'
+    assert_has Makefile 'PROJECT_ROLE := publication'
+    backup=$(find .template-update/backups -mindepth 1 -maxdepth 1 -type d | head -1)
+    assert_file "$backup/old/support/build.sh"
+    assert_file "$backup/incoming/README.md"
+    ok make status
+    ok make current
+    ok make update-template "FROM=$incoming_template"
+    assert_not "$CASE_DIR/command.log" 'replace support/build.sh'
+    printf '\n# Local customization.\n' >> support/build.sh
+    printf '\n# Incoming change.\n' >> "$incoming_template/support/common.sh"
+    cp support/common.sh "$CASE_DIR/common-before"
+    bad make update-template "FROM=$incoming_template" APPLY=1
+    assert_has "$CASE_DIR/command.log" 'CONFLICT support/build.sh'
+    cmp -s support/common.sh "$CASE_DIR/common-before" || fail 'Conflicting update partially replaced helpers'
+    cp "$incoming_template/support/build.sh" support/build.sh
+    ok make update-template "FROM=$incoming_template" APPLY=1
+    # Deleted managed helpers and symlinks must not silently be restored/overwritten.
+    cp support/archive.mk "$CASE_DIR/archive-before"
+    rm support/archive.mk
+    bad make update-template "FROM=$incoming_template" APPLY=1
+    assert_has "$CASE_DIR/command.log" 'CONFLICT support/archive.mk'
+    cp "$CASE_DIR/archive-before" support/archive.mk
+    mv support/archive.mk "$CASE_DIR/archive-link-target"
+    ln -s "$CASE_DIR/archive-link-target" support/archive.mk
+    bad make update-template "FROM=$incoming_template" APPLY=1
+    assert_has "$CASE_DIR/command.log" 'Refusing managed symlink'
+    rm support/archive.mk; cp "$CASE_DIR/archive-link-target" support/archive.mk
+    printf '\n# Root customization.\n' >> Makefile
+    bad make update-template "FROM=$incoming_template" APPLY=1
+    assert_has "$CASE_DIR/command.log" 'CONFLICT Makefile'
+    sed '$d' Makefile > "$CASE_DIR/root-clean"; sed '$d' "$CASE_DIR/root-clean" > Makefile
+    # A source-side symlink must fail even when it appears late in the inventory.
+    mv "$incoming_template/support/archive.mk" "$CASE_DIR/source-archive"
+    ln -s "$CASE_DIR/source-archive" "$incoming_template/support/archive.mk"
+    bad make update-template "FROM=$incoming_template" APPLY=1
+    assert_has "$CASE_DIR/command.log" 'Managed source symlink'
+    rm "$incoming_template/support/archive.mk"
+    cp "$CASE_DIR/source-archive" "$incoming_template/support/archive.mk"
+    # Exercise pre-manifest root migration through the source-side target.
+    rm .template-update/manifest
+    cp "$TEST_SOURCE_ROOT/tests/fixtures/legacy/Makefile" Makefile
+    ok make -C "$incoming_template" update-project "DEST=$author"
+    assert_has "$CASE_DIR/command.log" 'Legacy project'
+    ok make -C "$incoming_template" update-project "DEST=$author" APPLY=1
+    assert_has Makefile 'include support/root.mk'
+    assert_file .template-update/manifest
+    # Replacing the role declaration cannot be bypassed by a Make argument.
+    set_cfg Makefile PROJECT_ROLE template
+    bad make -C "$incoming_template" update-project "DEST=$author" APPLY=1 PROJECT_ROLE=publication
+    assert_has "$CASE_DIR/command.log" 'template clone is protected'
+    set_cfg Makefile PROJECT_ROLE publication
+    # Inject one replacement failure; all previous writes must roll back.
+    printf '\n# Another incoming change.\n' >> "$incoming_template/support/build.sh"
+    printf '\n# Another incoming change.\n' >> "$incoming_template/support/common.sh"
+    mkdir "$CASE_DIR/update-failure-bin"
+    real_mv=$(command -v mv)
+    cat > "$CASE_DIR/update-failure-bin/mv" <<FAILSCRIPT
+#!/usr/bin/env bash
+case "\$*" in *support/common.sh.template-update.tmp*) exit 73;; esac
+exec "$real_mv" "\$@"
+FAILSCRIPT
+    chmod +x "$CASE_DIR/update-failure-bin/mv"
+    cp support/build.sh "$CASE_DIR/build-before-failure"
+    cp support/common.sh "$CASE_DIR/common-before-failure"
+    cp .template-update/manifest "$CASE_DIR/manifest-before-failure"
+    bad env PATH="$CASE_DIR/update-failure-bin:$PATH" make update-template "FROM=$incoming_template" APPLY=1
+    assert_has "$CASE_DIR/command.log" 'rolled back'
+    cmp -s support/build.sh "$CASE_DIR/build-before-failure" || fail 'Rollback lost old helper'
+    cmp -s support/common.sh "$CASE_DIR/common-before-failure" || fail 'Rollback lost old common helper'
+    cmp -s .template-update/manifest "$CASE_DIR/manifest-before-failure" || fail 'Rollback changed baseline'
+    assert_absent .template-lock
+    assert_absent support/common.sh.template-update.tmp
+    ok make update-template "FROM=$incoming_template" APPLY=1
+}
+
+CASES=(test_workflow_commands test_project_updates test_help_tools test_documentation test_template_protection test_manuscript_dependencies test_ignore_rules test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_howto_walkthrough)
 if [ "${1:-}" = --case ]; then
     init_case
     "$2"

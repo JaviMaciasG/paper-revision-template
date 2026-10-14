@@ -29,9 +29,26 @@ Use GNU Make, Bash 3.2 or newer, and ordinary Unix utilities on Linux/macOS. Ins
 
 Run `make check-tools` from the clone to check your installation. `make help` works without TeX; each stage also has a help target.
 
+### Daily Commands
+
+Run these commands from the indicated project root. PDFs and manuscript ZIPs appear beside their stage's TeX sources.
+
+| Task | Command |
+| --- | --- |
+| Create a publication project from the template clone | `make init-project DEST=../my-paper` |
+| Check rounds, reviewer IDs, outputs, and TODOs | `make status` |
+| Build the original or latest revision and plain letters | `make current` |
+| Start a round with the decision's reviewer IDs | `make new-round REVIEWERS="1 2 3"` |
+| Prepare the latest submission's PDFs, bundles, and source ZIP | `make submission` |
+| Prepare a particular submitted round | `make submission ROUND=1` |
+| Preview an infrastructure update from the template clone | `make update-project DEST=../my-paper` |
+| Apply that update after reviewing its preview | `make update-project DEST=../my-paper APPLY=1` |
+
+`current`, `status`, and `submission` are root commands. Before any review rounds, `current` builds the original and `submission` also creates its source ZIP. With review rounds, they select the highest numeric active round. `make` still builds **all** stages; it remains useful when you deliberately want to rebuild earlier submissions. For a complete exercise, use [HOWTO.md](HOWTO.md).
+
 ### Build PDF Copies of the Guides
 
-To read or share this README and the guided example as PDFs, install Pandoc in addition to the existing latexmk/pdfLaTeX tools and TeX Live packages (`fvextra`, `xurl`, `xcolor`, `lmodern`, `booktabs`, `longtable`, `hyperref`, `etoolbox`, `needspace`, and `tcolorbox`). These are normally supplied by the LaTeX-extra and fonts-recommended packages. No separate syntax-highlighting executable or Python interpreter is needed.
+To read or share this README and the guided example as PDFs, install Pandoc in addition to the existing latexmk/pdfLaTeX tools and TeX Live packages (`fvextra`, `xurl`, `xcolor`, `lmodern`, `booktabs`, `longtable`, `hyperref`, `etoolbox`, `needspace`, `tcolorbox`, and `tocloft`). These are normally supplied by the LaTeX-extra and fonts-recommended packages. No separate syntax-highlighting executable or Python interpreter is needed.
 
 To generate the PDF guides, run the following Bash commands from the project root:
 
@@ -129,30 +146,30 @@ From an initialized publication project's root, after receiving the first decisi
 To create the first review round, run the following Bash command from the publication root:
 
 ```bash
-make new-round
+make new-round REVIEWERS="1 2 3"
 ```
 
-This builds `original/paper.tex`, copies its manuscript dependencies into `revised1/`, and creates `reply1/` from the response scaffold, initially with two reviewers plus the editor. The required build tools must be installed before creating a round. See the following steps to configure reviewers, edit sources, and build the submission.
+This builds `original/paper.tex`, copies its manuscript dependencies into `revised1/`, and creates `reply1/` from the response scaffold, with the specified reviewers plus the editor. Omitting `REVIEWERS` starts the first round with reviewers 1 and 2. The required build tools must be installed before creating a round. See the following steps to configure reviewers, edit sources, and build the submission.
 
 ### Set the Reviewers for This Round
 
-There is no fixed reviewer limit. New author projects start round 1 with reviewers 1 and 2; add or remove them to match the decision. The editor is always separate and does not count as a reviewer. The `REVIEWERS` list in the round's Makefile is authoritative. Numbers remain stable when another reviewer is removed; gaps are allowed. Prefer the targets to manual changes so membership, generated inputs, sources, and safety records remain consistent.
+There is no fixed reviewer limit. Specify membership during creation with `make new-round REVIEWERS="1 2 3"`, or omit it to use the first-round defaults of 1 and 2 and later inherit the preceding round's IDs. `make new-round REVIEWERS=""` creates an editor-only round. IDs must be distinct positive integers; spaces separate them, and their order determines letter order. Add/remove targets remain available to adjust membership after creation. The editor is always separate and does not count as a reviewer. The `REVIEWERS` list in the round's Makefile is authoritative. Numbers remain stable when another reviewer is removed; gaps are allowed. Prefer the targets to manual changes so membership, generated inputs, sources, and safety records remain consistent.
 
-To add, remove, or inspect reviewers, use the following Bash commands from the indicated folders:
+The following example assumes round 1 was created with reviewers 1, 2, and 3. To add, remove, or inspect reviewers, use these Bash commands from the indicated folders:
 
 ```bash
 # From the project root:
 make add-reviewer ROUND=1                 # next unused number after the highest ID
-make remove-reviewer ROUND=1 REVIEWER=3  # remove it while untouched
-make add-reviewer ROUND=1 REVIEWER=4      # explicit journal reviewer number
-make remove-reviewer ROUND=1 REVIEWER=4
+make remove-reviewer ROUND=1 REVIEWER=4  # remove it while untouched
+make add-reviewer ROUND=1 REVIEWER=5      # explicit journal reviewer number
+make remove-reviewer ROUND=1 REVIEWER=5
 make info-reviewer                       # every review round, counts and IDs
 make info-reviewer ROUND=1
 
 # From reply1/: these affect round 1 automatically:
 cd reply1
 make add-reviewer
-make remove-reviewer REVIEWER=3
+make remove-reviewer REVIEWER=4
 make info-reviewer
 cd ..
 ```
@@ -203,21 +220,41 @@ Bibliography declarations are inserted automatically at the end of a letter only
 
 Manuscripts retain their own normal `\bibliographystyle{IEEEtran}` and `\bibliography{paper}` declarations. With those declarations, keep `paper.bib` present even if empty; omit the declarations if the manuscript has no bibliography at all. The automatic citation-aware behavior above applies to response letters.
 
-### Build, Inspect, and Submit the Revision
+### Check Progress
 
-From the publication root, build the manuscripts, comparisons, and all response letters.
-
-To build the revised manuscript, response letters, comparison, and source archive, run the following Bash commands:
+To inspect the project without compiling documents, run the following Bash command:
 
 ```bash
-make
+make status
+```
+
+The report shows project role, active rounds, the latest round, baselines, reviewer IDs, and whether each expected PDF and ZIP exists. It also lists literal `TODO` occurrences in manuscript and response TeX/BibTeX sources, excluding `build/` and pristine scaffold copies. Check each occurrence: a macro definition or reminder can also match. The report does not determine whether outputs are current, validate scientific content, or certify submission readiness. No TeX installation or Git repository is needed for this report. Missing stage pairs, manuscript sources, configured reviewer files, or comparison baselines are errors.
+
+### Build, Inspect, and Submit the Revision
+
+To build the latest manuscript, comparison, and all its plain response letters, then prepare its submission files, run the following Bash commands from the publication root:
+
+```bash
+make current
+make submission
+# Select an earlier round explicitly, or override its cover setting:
+make submission ROUND=1 COVER=1
+```
+
+`submission` builds the clean manuscript, comparison, combined/editor/individual letters, bundles with the comparison appended, and the manuscript source ZIP. It respects the round's `COVER` setting unless overridden. Files stay in `revisedN/` and `replyN/`; the command prints their paths after success. It does not upload files or create a separate delivery folder. With no rounds, it builds `original/paper.pdf` and `original/paper-original.zip` instead. `ROUND` must identify an existing positive-numbered round when supplied.
+
+Inspect the generated files and submit those required by the journal. Keep submitted stages unchanged and make further edits in the next round. `make current` does not rebuild unrelated earlier stages, but building a comparison may rebuild its baseline manuscript if necessary.
+
+For example, the folder-level alternatives for round 1 are the following Bash commands:
+
+```bash
+make -C revised1
+make -C reply1
 make -C reply1 bundle
 make -C revised1 zip
 ```
 
-Inspect `revised1/paper.pdf` (clean manuscript), `revised1/paper-diff.pdf` (marked comparison), and the combined, editor, and individual letters in `reply1/`. Bundles append the comparison to each letter. Submit the files required by the journal; the source archive is `revised1/paper-revised1.zip`. Keep submitted stages unchanged and make further edits in the next round.
-
-For individual build targets, see the [command reference](#make-targets). For optional explanatory covers, see [submission covers](#optional-covers-for-submission-bundles).
+For individual targets, see the [command reference](#make-targets). For optional explanatory covers, see [submission covers](#optional-covers-for-submission-bundles).
 
 ### Start Subsequent Revisions
 
@@ -229,9 +266,9 @@ To start the next review round, run the following Bash command from the publicat
 make new-round
 ```
 
-It creates `revised2/` from `revised1/` and `reply2/` from `reply1/`. Further invocations create round 3 and onwards; there are no unused rounds at initialization. Metadata, reviewer membership, formatting, and cover preference are inherited. Comment/answer bodies are replaced with useful TODO scaffolds, retaining the prior outer `enumerate`/`itemize` choice. Update the new manuscript ID if the journal changes it. No old submitted folder is modified. An orphaned round or existing destination is an error, rather than permission to overwrite it.
+It creates `revised2/` from `revised1/` and `reply2/` from `reply1/`. Further invocations create round 3 and onwards; there are no unused rounds at initialization. Metadata, reviewer membership, formatting, and cover preference are inherited unless `REVIEWERS` is explicitly supplied. Newly selected reviewer IDs receive standard wrappers and fresh comment scaffolds; retained reviewers preserve their wrappers and outer list style. Comment/answer bodies are replaced with useful TODO scaffolds, retaining the prior outer `enumerate`/`itemize` choice. Update the new manuscript ID if the journal changes it. No old submitted folder is modified. An orphaned round or existing destination is an error, rather than permission to overwrite it.
 
-Check the new decision's reviewer IDs before filling responses. Remove reviewers with no report from this round while their new scaffolds are untouched, and add newly assigned reviewers. See [setting reviewers](#set-the-reviewers-for-this-round) and the [worked second round](HOWTO.md#receive-the-second-decision-reviewers-1-3-and-4).
+Check the new decision's reviewer IDs before creation: for example, `make new-round REVIEWERS="1 3 4"` excludes reviewer 2 from the new round and adds reviewer 4 while retaining reviewers 1 and 3. Omitted IDs are excluded only from the newly created stage. If you inherit membership instead, remove reviewers with no report while their new scaffolds are untouched and add newly assigned reviewers. See [setting reviewers](#set-the-reviewers-for-this-round) and the [worked second round](HOWTO.md#round-2-receiving-the-second-decision-reviewers-1-3-and-4).
 
 ## Guided Example (HOWTO)
 
@@ -278,7 +315,7 @@ The transfer holds project and stage locks and rolls back a completed first move
 
 ### Worked Removal and Restoration Example
 
-After completing the guided publication, follow [the optional removal and restoration exercise](HOWTO.md#optional-remove-and-restore-the-completed-round). It preserves the completed second round's responses and generated outputs.
+After completing the guided publication, follow [the optional removal and restoration exercise](HOWTO.md#optional-removing-and-restoring-the-completed-round). It preserves the completed second round's responses and generated outputs.
 
 ### Editor-Only Revisions
 
@@ -297,6 +334,35 @@ make -C reply1 bundle
 ```
 
 The combined document addresses the editor, and subsequent rounds retain zero reviewers unless you add one.
+
+### Update an Existing Publication Project
+
+Use a local template checkout containing the desired update. Updates require neither Git nor network access, and source files do not need to be committed first. The source checkout must have the template role and the destination must have the publication role. The two directories must be outside each other.
+
+To preview and apply an update from the template clone, run the following Bash commands:
+
+```bash
+make update-project DEST=../my-paper
+# Review the proposed replacements and any conflicts, then apply:
+make update-project DEST=../my-paper APPLY=1
+```
+
+Newly initialized or successfully upgraded publication projects also provide the following Bash commands:
+
+```bash
+make update-template FROM=/path/to/paper-revision-template
+make update-template FROM=/path/to/paper-revision-template APPLY=1
+make status
+make current
+```
+
+The preview changes no project files. Application backs up affected files under `.template-update/backups/update-<timestamp>-XXXXXXXX/`, replaces recognized infrastructure, and records a managed-file checksum manifest in `.template-update/manifest`. Commit that manifest with your project sources if using Git; backups are ignored. The manifest is only update bookkeeping: the literal role in the root Makefile remains the authority for protected operations.
+
+Manuscript stages, response sources, metadata, reviewer membership, archived rounds, and LICENSE are preserved. Unmodified guides can be updated. Customized README/HOWTO files are retained, with incoming versions in the backup's `incoming/` directory for comparison. Existing ignore rules are retained; the updater adds its backup exclusion. Compare the template `.gitignore` manually for any other new rules.
+
+The updater supports pristine projects initialized from template commit `6f956cd`, using a bundled baseline to migrate their root Makefile and helpers. Use the **template-side** command for this first upgrade: their old Makefile has no `update-template` target. New projects record their baseline automatically. Modified or unrecognized infrastructure, including a customized root Makefile or deleted managed file, stops the update before replacement. Reconcile conflicts manually against the incoming template, then preview again. Keep the publication role when reconciling Makefiles. No force option overwrites customizations.
+
+Application waits for project/stage locks and rolls back replaced files on failure. For manual recovery after a completed update, stop all builds, read the backup's `actions.tsv`, restore paths marked `restore` from its `old/` directory, and remove only paths marked `delete`. Restore the saved manifest as well. Preserve the backup until satisfied with the update, and review infrastructure changes before committing them.
 
 ### Optional Covers for Submission Bundles
 
@@ -320,7 +386,7 @@ The following plain-text overview shows the project folder layout:
 original/                    Submitted manuscript: paper.tex, paper.bib
 revised1/, revised2/, ...     Complete manuscript sources for each round
 reply1/, reply2/, ...         Response letters for the matching round
-support/                     Shared Make rules, Bash helpers, letter scaffolds
+support/                     Shared root/stage Make rules, Bash helpers, letter scaffolds
   walkthrough/               Fictional, ready-to-copy guided example assets
 tests/                       Bash integration tests and independent fixtures
 ```
@@ -336,7 +402,12 @@ Each `revisedN/Makefile` declares its `BASELINE` and `replyN/Makefile` its `REVI
 | `make README.pdf` or `make HOWTO.pdf` | Build one guide PDF |
 | `make check-tools` | Check required build tools |
 | `make init-project DEST=../my-paper` | Create an independent publication project |
-| `make new-round` | Create the next manuscript and response stage |
+| `make new-round [REVIEWERS="1 3 4"]` | Create the next round; omit membership to inherit it, or use `REVIEWERS=""` for editor-only |
+| `make status` | Show rounds, baselines, reviewer IDs, output presence, and source TODO locations |
+| `make current` | Build the original or latest revised manuscript, comparison, and plain letters |
+| `make submission [ROUND=2] [COVER=1]` | Prepare one submission in its existing stage folders |
+| `make update-project DEST=../my-paper [APPLY=1]` | Preview/apply an update from the template checkout |
+| `make update-template FROM=/path/to/template [APPLY=1]` | Preview/apply an update from an upgraded publication project |
 | `make add-reviewer ROUND=1` | Add the next reviewer; use `REVIEWER=4` for an explicit ID |
 | `make remove-reviewer ROUND=1 REVIEWER=4` | Remove an untouched reviewer scaffold |
 | `make info-reviewer` | Show all rounds; use `ROUND=1` to select one |
@@ -380,9 +451,9 @@ Tool versions can differ between installations, and PDF timestamps can vary acro
 
 ### Protection, Cleanup, and Interrupted Operations
 
-The template clone's root Makefile declares `PROJECT_ROLE := template`. It refuses `new-round`, `remove-round`, `restore-round`, `add-reviewer`, and `remove-reviewer` so an accidental workflow command cannot change the demonstration's stages or reviewer membership. `init-project` automatically writes `PROJECT_ROLE := publication` into the new project's root Makefile, enabling those commands there. No separate marker file or manual activation step is needed.
+Root targets are defined in `support/root.mk`; the thin root Makefile retains project configuration and role. The template clone's root Makefile declares `PROJECT_ROLE := template`. It refuses `new-round`, `remove-round`, `restore-round`, `add-reviewer`, and `remove-reviewer` so an accidental workflow command cannot change the demonstration's stages or reviewer membership. `init-project` automatically writes `PROJECT_ROLE := publication` into the new project's root Makefile, enabling those commands there. No separate marker file or manual activation step is needed.
 
-The shared Bash helpers read the declaration directly from the root Makefile before creating locks, temporary directories, or changing sources. The check applies at the root, inside `replyN/`, and to direct helper calls. Command-line or environment assignments such as `make new-round PROJECT_ROLE=publication` do not bypass it. A missing or invalid declaration also refuses source-changing commands.
+The shared Bash helpers read the declaration directly from the root Makefile before creating locks, temporary directories, or changing sources. The check applies at the root, inside `replyN/`, and to direct helper calls. Command-line or environment assignments such as `make new-round PROJECT_ROLE=publication` do not bypass it. A missing or invalid declaration also refuses source-changing commands. The updater likewise refuses template-role destinations; its checksum manifest cannot grant publication permissions.
 
 Initialization, builds, comparisons, bundles, archives, tests, help, and reviewer information remain available in the template clone. `clean` and `distclean` remain available too: they remove generated outputs while preserving source files and reviewer safety records. This protects the supplied workflow against mistakes; it does not prevent deliberate manual edits or filesystem deletion. Keep the role declaration literal and retain the template role in the clone.
 

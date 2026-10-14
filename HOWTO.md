@@ -112,14 +112,14 @@ Please use manuscript ID GUIDE-2026-001 for this revision.
 The Fictional Editor
 ```
 
-Create the round and add reviewer 3 to the default reviewers 1 and 2. Add reviewers before filling their comments and responses.
+Create the round with the three reviewer IDs assigned in the decision. Choose membership before filling comments and responses.
 
-To create round 1 and add its third reviewer, run the following Bash commands:
+To create round 1 with reviewers 1, 2, and 3, run the following Bash commands:
 
 <!-- RUN -->
 ```bash
-make new-round
-make add-reviewer ROUND=1
+make new-round REVIEWERS="1 2 3"
+make status
 make info-reviewer ROUND=1
 ```
 
@@ -304,22 +304,21 @@ if make remove-reviewer ROUND=1 REVIEWER=1; then
   echo 'Unexpected removal of populated reviewer files' >&2
   exit 1
 fi
-make -j4
+make current
 make -C reply1 responses
 make -C reply1 editor
 make -C reply1 reviewer1
 make -C reply1 reviewer2
 make -C reply1 reviewer3
 make -C reply1 bundle COVER=1
-make -C reply1 bundle COVER=0
-make zip
+make submission COVER=0
 mkdir submission-check
 (cd submission-check && unzip -q ../revised1/paper-revised1.zip && make)
 ```
 
 Inspect `revised1/paper.pdf`, `revised1/paper-diff.pdf`, and the five plain letters in `reply1/`. Bundles have names such as `responses-with-diff.pdf` and put the optional cover first, then the letter, then the comparison. `COVER=1` is opt-in; the final command above restores uncovered bundles. Set `COVER := 1` in a reply Makefile to make covers its persistent default; a command-line `COVER=0` overrides it.
 
-The independent archive build in `submission-check/` verifies the submitted sources. Submit the required PDFs and `revised1/paper-revised1.zip`, then freeze round 1. The source ZIP contains the manuscript's required compilation sources and one standalone Makefile, not rebuttal letters or the repository's entire history.
+`make current` builds only round 1 and its required baseline; `make submission` prepares every round-1 output and prints their paths. Folder-level commands above demonstrate individual letters and optional covers. The independent archive build in `submission-check/` verifies the submitted sources. Submit the required PDFs and `revised1/paper-revised1.zip`, then freeze round 1. The source ZIP contains the manuscript's required compilation sources and one standalone Makefile, not rebuttal letters or the repository's entire history.
 
 ## Round 2: Receiving the Second Decision (Reviewers 1, 3, and 4)
 
@@ -363,22 +362,19 @@ Please use manuscript ID GUIDE-2026-001-R2 for the final revision.
 The Fictional Editor
 ```
 
-Use `new-round` again; it inherits reviewers 1, 2, and 3 and replaces old answers with new TODO scaffolds. Keep reviewer 2's completed round-1 letter intact. In round 2, remove that reviewer's untouched scaffolds because no follow-up report was received, and add reviewer 4 using the number assigned in the decision. Reviewers 1 and 3 retain their numbers.
+Use `new-round` again with `REVIEWERS="1 3 4"`. It replaces old answers with new TODO scaffolds, excludes reviewer 2 from round 2, and initializes reviewer 4 using the number assigned in the decision. Reviewer 2's completed round-1 letter stays intact; reviewers 1 and 3 retain their numbers and formatting. Without an explicit list, membership would be inherited.
 
 ## Updating Reviewers, Revising, and Answering the New Comments
 
-The removal succeeds before any edits because both reviewer 2 files still match their generated scaffolds. An edited wrapper or comments file would be protected against removal.
+Selecting membership at creation avoids separate add/remove commands. If membership changes after creation, use `make add-reviewer` or `make remove-reviewer` inside `reply2/`; removal only succeeds while that reviewer's wrapper and comments still match their generated scaffolds.
 
 To create round 2, change its reviewers to 1, 3, and 4, and fill its revised sources and responses, run the following Bash commands:
 
 <!-- RUN -->
 ```bash
-make new-round
-cd reply2
-make remove-reviewer REVIEWER=2
-make add-reviewer REVIEWER=4
-make info-reviewer
-cd ..
+make new-round REVIEWERS="1 3 4"
+make status
+make -C reply2 info-reviewer
 cp support/walkthrough/revised2/paper.tex revised2/paper.tex
 cp support/walkthrough/reply2/metadata.tex reply2/metadata.tex
 cp support/walkthrough/reply2/editor-comments.tex reply2/editor-comments.tex
@@ -525,12 +521,11 @@ To build and package round 2, inspect reviewer membership, and remove auxiliarie
 
 <!-- RUN -->
 ```bash
-make -j4
+make current
 make -C reply2 reviewer1
 make -C reply2 reviewer3
 make -C reply2 reviewer4
-make -C reply2 bundle
-make -C revised2 zip
+make submission ROUND=2
 make info-reviewer
 (cd reply2 && make info-reviewer)
 make clean
@@ -554,3 +549,23 @@ make restore-round ROUND=2
 make info-reviewer
 ```
 
+
+## Keeping the Project Build System Updated
+
+Update the build system separately from the manuscript and response sources. From the original template clone, preview and apply an update using the following Bash commands (these maintenance commands are not part of the executable walkthrough):
+
+```bash
+make update-project DEST=../guided-paper
+make update-project DEST=../guided-paper APPLY=1
+```
+
+Alternatively, from the guided project, use the following Bash commands with your actual template path:
+
+```bash
+make update-template FROM=/path/to/paper-revision-template
+make update-template FROM=/path/to/paper-revision-template APPLY=1
+make status
+make current
+```
+
+Review the preview first. Conflicting customizations stop the update; modified guides are preserved with incoming copies for comparison. Replacements are backed up under `.template-update/backups/`. Submitted manuscript stages and response sources remain untouched. See the README's [update instructions](README.md#update-an-existing-publication-project) for legacy migration and recovery.
