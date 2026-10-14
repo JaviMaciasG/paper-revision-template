@@ -36,7 +36,10 @@ Run these commands from the indicated project root. PDFs and manuscript ZIPs app
 | Task | Command |
 | --- | --- |
 | Create a publication project from the template clone | `make init-project DEST=../my-paper` |
-| Check rounds, reviewer IDs, outputs, and TODOs | `make status` |
+| Check rounds, reviewer IDs, outputs, TODOs, and local Git setup | `make status` |
+| Initialize local Git and commit the project sources | `make git-init` |
+| Create/connect a private GitHub repository and push through SSH | `make github-init` |
+| Select a personal or organization GitHub repository | `make github-init REPO=owner/my-paper` |
 | Build the original or latest revision and plain letters | `make current` |
 | Start a round with the decision's reviewer IDs | `make new-round REVIEWERS="1 2 3"` |
 | Prepare the latest submission's PDFs, bundles, and source ZIP | `make submission` |
@@ -131,13 +134,109 @@ To compile and package the original manuscript, and optionally initialize Git, r
 make check-tools
 make original
 make -C original zip
-# Optionally start independent version control:
-git init
-git add .
-git commit -m 'Initial submitted manuscript'
+# Optionally start independent version control after replacing the starter:
+make git-init
 ```
 
 Submit `original/paper.pdf`, then treat the sources in `original/` as the submitted snapshot.
+
+### Optional Git and GitHub Setup
+
+Git and GitHub are optional; manuscript builds and review-round management work without them. The setup targets run only from an initialized publication project's root. They refuse the protected template clone, including attempts to override its role from the command line.
+
+#### Initialize Local Version Control
+
+After replacing the starter manuscript, run the following Bash command to create the local repository and initial commit:
+
+```bash
+make git-init
+```
+
+The target creates an independent repository on branch `main`, prints the files it proposes to add, lists any files already staged, and asks `Proceed with staging and the initial commit? [y/N]`. Enter `y` or `Y` to stage all non-ignored files and commit them as `chore: initialize manuscript project`. Any other answer, including Enter or end of input, cancels without changing the index or creating a commit. Repository initialization and local configuration may already have taken place before cancellation. This includes manuscript/rebuttal sources, bibliography, source figures (including PDF figures), Makefiles, helpers, guides, tests, and the update manifest. Unlike the dependency selection for manuscript ZIPs, `git add --all` preserves the whole project. `.gitignore` excludes generated PDFs/ZIPs, auxiliaries, build directories, and update backups; add your own exclusions before running the target.
+
+New repositories receive repository-local `push.default=simple` and `pull.ff=only`. Existing branches and preferences are preserved. If commit history already exists, the target reports that setup is complete and does not stage edits or create another commit. An existing empty repository keeps its chosen branch. A publication inside a parent Git working tree gets its own repository; the parent index and history remain untouched.
+
+If Git reports a missing commit identity, it leaves the new repository initialized without staging files. Configure the identity **inside this publication project**, then retry using the following Bash commands:
+
+```bash
+git config --local user.name "Your Name"
+git config --local user.email "you@example.org"
+make git-init
+```
+
+For comparison, the equivalent Git operations for a new project are the following Bash commands:
+
+```bash
+git init
+git symbolic-ref HEAD refs/heads/main
+git config --local push.default simple
+git config --local pull.ff only
+git add --all --dry-run
+# Review the list; continue only if you approve.
+git add --all
+git diff --cached --stat
+git commit -m 'chore: initialize manuscript project'
+```
+
+#### Configure GitHub Authentication and SSH
+
+Install [GitHub CLI](https://cli.github.com/), in addition to Git and an SSH client. GitHub CLI authentication creates/manages repositories; SSH authentication uploads and downloads Git commits. Both must work before the remote setup target runs.
+
+To authenticate GitHub CLI for SSH and test your SSH connection, run these one-time Bash commands:
+
+```bash
+gh auth login --hostname github.com --git-protocol ssh
+ssh -T git@github.com
+```
+
+Follow the login prompts and GitHub's [SSH setup instructions](https://docs.github.com/en/authentication/connecting-to-github-with-ssh). When checking a new host key, follow [GitHub's connection-test instructions](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/testing-your-ssh-connection). A successful test displays your authenticated username and reports that GitHub does not provide shell access; **its exit status is 1 even on success**. The target handles this distinction. It uses a noninteractive SSH check, so unlock passphrase-protected keys through your SSH agent first. It does not generate keys, store tokens, or alter global Git settings.
+
+#### Create or Connect the GitHub Repository
+
+To create or connect a private remote and push the committed project, run the following Bash command:
+
+```bash
+make github-init
+```
+
+By default, the owner is the authenticated GitHub user, the name is the publication folder's name, and visibility is **private**. Folder names containing spaces or other unsupported characters require an explicit `REPO`. The target creates an empty remote without a second README or license, configures `origin` with an SSH URL, pushes the current branch, and establishes upstream tracking. GitHub CLI is required only for this target. No extra commit is created; any later edits must first be committed locally.
+
+To select a different name, an organization owner, or public visibility, use the following Bash examples:
+
+```bash
+make github-init REPO=my-paper
+make github-init REPO=my-organization/my-paper
+# Use public visibility only when you intend the repository to be public:
+make github-init REPO=owner/my-paper VISIBILITY=public
+```
+
+Choose one setup command for your intended remote. Existing empty repositories can be connected. A nonempty remote requires a matching branch sharing this project's Git history; unrelated history is rejected. An existing `origin` pointing elsewhere is not overwritten. An HTTPS origin for the same GitHub repository can be converted to SSH. Existing remote visibility must match `VISIBILITY`; a mismatch stops setup before pushing, rather than changing visibility automatically.
+
+#### Push, Pull, and Recover from Setup Failures
+
+After successful setup, commit your changes and synchronize using the following Bash commands:
+
+```bash
+git add --all
+git commit -m 'docs(manuscript): address first-round reviewer comments'
+git push
+git pull
+```
+
+`git push` and `git pull` use the configured upstream. For a newly initialized project, pulls only fast-forward; divergent history requires an explicit decision about how to reconcile it. `make status` shows the local branch, origin URL, and upstream without fetching. It reports local information and does not claim to reflect the latest remote state.
+
+If creation succeeds but pushing fails, the target retains the GitHub repository, local commits, and origin configuration. Fix SSH or access problems and rerun the **same** `github-init` command, including `REPO` and `VISIBILITY` when supplied. It reuses the requested repository instead of creating another one. It never force-pushes, deletes a remote repository, or automatically merges unrelated histories.
+
+If the remote branch has moved ahead, fetch and inspect its changes before reconciling. For a straightforward fast-forward from `main`, use the following Bash commands, then retry setup:
+
+```bash
+git fetch origin
+git log --oneline --graph --all -10
+git pull --ff-only origin main
+make github-init REPO=owner/my-paper
+```
+
+Use your actual branch and repository names. If both sides have new commits, reconcile them using your preferred Git workflow; the setup helper does not choose a merge or rebase strategy.
 
 ### Start the First Revision
 
@@ -228,7 +327,7 @@ To inspect the project without compiling documents, run the following Bash comma
 make status
 ```
 
-The report shows project role, active rounds, the latest round, baselines, reviewer IDs, and whether each expected PDF and ZIP exists. It also lists literal `TODO` occurrences in manuscript and response TeX/BibTeX sources, excluding `build/` and pristine scaffold copies. Check each occurrence: a macro definition or reminder can also match. The report does not determine whether outputs are current, validate scientific content, or certify submission readiness. No TeX installation or Git repository is needed for this report. Missing stage pairs, manuscript sources, configured reviewer files, or comparison baselines are errors.
+The report shows project role, active rounds, the latest round, baselines, reviewer IDs, and whether each expected PDF and ZIP exists. It also lists literal `TODO` occurrences in manuscript and response TeX/BibTeX sources, excluding `build/` and pristine scaffold copies. Check each occurrence: a macro definition or reminder can also match. The report does not determine whether outputs are current, validate scientific content, or certify submission readiness. No TeX installation or Git repository is needed for this report. When Git is installed and this project has its own repository, the report also shows its local branch, origin, and upstream without fetching. Missing stage pairs, manuscript sources, configured reviewer files, or comparison baselines are errors.
 
 ### Build, Inspect, and Submit the Revision
 
@@ -403,7 +502,10 @@ Each `revisedN/Makefile` declares its `BASELINE` and `replyN/Makefile` its `REVI
 | `make check-tools` | Check required build tools |
 | `make init-project DEST=../my-paper` | Create an independent publication project |
 | `make new-round [REVIEWERS="1 3 4"]` | Create the next round; omit membership to inherit it, or use `REVIEWERS=""` for editor-only |
-| `make status` | Show rounds, baselines, reviewer IDs, output presence, and source TODO locations |
+| `make status` | Show rounds, baselines, reviewer IDs, output presence, TODOs, and local Git information |
+| `make git-init` | Preview sources and confirm before staging and creating the initial Git commit |
+| `make github-init` | Create/connect a private SSH remote named after this folder and push |
+| `make github-init REPO=owner/my-paper VISIBILITY=public` | Select the owner/name and deliberately request public visibility |
 | `make current` | Build the original or latest revised manuscript, comparison, and plain letters |
 | `make submission [ROUND=2] [COVER=1]` | Prepare one submission in its existing stage folders |
 | `make update-project DEST=../my-paper [APPLY=1]` | Preview/apply an update from the template checkout |
@@ -451,7 +553,7 @@ Tool versions can differ between installations, and PDF timestamps can vary acro
 
 ### Protection, Cleanup, and Interrupted Operations
 
-Root targets are defined in `support/root.mk`; the thin root Makefile retains project configuration and role. The template clone's root Makefile declares `PROJECT_ROLE := template`. It refuses `new-round`, `remove-round`, `restore-round`, `add-reviewer`, and `remove-reviewer` so an accidental workflow command cannot change the demonstration's stages or reviewer membership. `init-project` automatically writes `PROJECT_ROLE := publication` into the new project's root Makefile, enabling those commands there. No separate marker file or manual activation step is needed.
+Root targets are defined in `support/root.mk`; the thin root Makefile retains project configuration and role. The template clone's root Makefile declares `PROJECT_ROLE := template`. It refuses `git-init`, `github-init`, `new-round`, `remove-round`, `restore-round`, `add-reviewer`, and `remove-reviewer` so an accidental workflow command cannot change the demonstration's stages or reviewer membership. `init-project` automatically writes `PROJECT_ROLE := publication` into the new project's root Makefile, enabling those commands there. No separate marker file or manual activation step is needed.
 
 The shared Bash helpers read the declaration directly from the root Makefile before creating locks, temporary directories, or changing sources. The check applies at the root, inside `replyN/`, and to direct helper calls. Command-line or environment assignments such as `make new-round PROJECT_ROLE=publication` do not bypass it. A missing or invalid declaration also refuses source-changing commands. The updater likewise refuses template-role destinations; its checksum manifest cannot grant publication permissions.
 

@@ -21,6 +21,19 @@ if [ "$command" = status ]; then
     case "$role" in template|publication) ;; *) fail 'Invalid PROJECT_ROLE in root Makefile';; esac
     printf 'Project role: %s\nLatest round: %s\n' "$role" "$LATEST_ROUND"
     printf 'Output presence below does not establish freshness or submission readiness.\n'
+    printf '\nLocal Git information (no fetch performed):\n'
+    if ! command -v git >/dev/null 2>&1; then printf '  Git is not installed (optional).\n'
+    else
+        git_root=$(GIT_OPTIONAL_LOCKS=0 git rev-parse --show-toplevel 2>/dev/null || :)
+        if [ -z "$git_root" ] || [ "$(canonical "$git_root")" != "$TEMPLATE_ROOT" ]; then
+            printf '  No independent publication Git repository.\n'
+        else
+            git_branch=$(GIT_OPTIONAL_LOCKS=0 git symbolic-ref --quiet --short HEAD 2>/dev/null || :)
+            git_origin=$(GIT_OPTIONAL_LOCKS=0 git remote get-url origin 2>/dev/null || :)
+            git_upstream=$(GIT_OPTIONAL_LOCKS=0 git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || :)
+            printf '  Branch: %s\n  Origin: %s\n  Upstream: %s\n' "${git_branch:-(detached HEAD)}" "${git_origin:-(none)}" "${git_upstream:-(none)}"
+        fi
+    fi
     report_output() {
         local path=$1 state=absent
         [ ! -f "$TEMPLATE_ROOT/$path" ] || state=present

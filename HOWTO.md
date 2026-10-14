@@ -71,6 +71,38 @@ The BibTeX bibliography file `support/walkthrough/original/paper.bib` contains:
 }
 ```
 
+## Optional: Version Control and GitHub
+
+After copying and building the original manuscript above, you can track the complete project with Git. These optional setup commands are not part of the automated walkthrough; the GitHub command creates or connects a real remote when you run it.
+
+To create the local initial source commit inside `guided-paper/`, run the following Bash command:
+
+```bash
+make git-init
+```
+
+The target first lists the proposed files and asks for confirmation with `[y/N]`. Enter `y` to stage and commit; Enter, any other answer, or end of input cancels without changing the index or creating a commit. Repository initialization may already have taken place. After confirmation, it commits all non-ignored project sources, including the original paper, bibliography, figures, build helpers, guides, tests, and update manifest. Generated documents, ZIPs, auxiliaries, and update backups are ignored. It creates branch `main` for a new repository and uses the commit message `chore: initialize manuscript project`. If identity configuration is missing, follow the target's repository-local instructions and retry.
+
+After installing GitHub CLI and configuring SSH authentication as described in the README's [Git and GitHub setup guide](README.md#optional-git-and-github-setup), publish the existing commit to a private remote using the following Bash command:
+
+```bash
+make github-init
+```
+
+The default remote is `guided-paper` under the authenticated GitHub account. To choose another owner/name, run `make github-init REPO=owner/my-paper` instead. SSH is used for Git transport. Setup checks authentication, creates or connects the remote, pushes the current branch, and configures its upstream. It does not commit later edits or automatically resolve conflicting histories.
+
+After completing each review round, record your work and synchronize it using the following Bash commands:
+
+```bash
+git add --all
+git commit -m 'docs(manuscript): address reviewer comments'
+git push
+git pull
+make status
+```
+
+For new repositories, pull is configured to fast-forward only. Existing histories and preferences are preserved. Keep using the numbered manuscript and reply folders: version control records their history while the folders preserve the explicit submitted packages.
+
 ## Round 1: Receiving the First Decision (Reviewers 1, 2, and 3)
 
 A plain-text email can mix paragraphs, numbering, and bullets.

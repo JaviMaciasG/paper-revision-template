@@ -1025,7 +1025,266 @@ FAILSCRIPT
     ok make update-template "FROM=$incoming_template" APPLY=1
 }
 
-CASES=(test_workflow_commands test_project_updates test_help_tools test_documentation test_template_protection test_manuscript_dependencies test_ignore_rules test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_howto_walkthrough)
+confirm_git_init() { printf 'y\n' | make git-init; }
+
+test_git_initialization() {
+    fresh_author
+    export GIT_CONFIG_GLOBAL="$CASE_DIR/git-global" GIT_CONFIG_NOSYSTEM=1
+    unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL
+    assert_absent .git
+    bad make git-init
+    assert_has "$CASE_DIR/command.log" 'Missing Git commit identity'
+    assert_file .git/HEAD
+    [ "$(git symbolic-ref --short HEAD)" = main ] || fail 'New repository did not use main'
+    [ -z "$(git ls-files)" ] || fail 'Missing identity staged files'
+    ok git config --local user.name 'Template Test Author'
+    ok git config --local user.email 'author@example.invalid'
+    mkdir -p original/figures original/build .template-update/backups/sample
+    printf 'Source PDF asset\n' > original/figures/source.pdf
+    printf 'Generated PDF\n' > original/paper.pdf
+    printf 'Generated ZIP\n' > original/paper-original.zip
+    printf 'Auxiliary\n' > original/build/paper.aux
+    printf 'Backup\n' > .template-update/backups/sample/Makefile
+    # Default/no/EOF/invalid answers preserve the exact preexisting index.
+    git add -- original/paper.bib
+    cp .git/index "$CASE_DIR/index-before-confirmation"
+    for response in n N '' yes; do
+        ok bash -c 'printf "%s\n" "$1" | make git-init' _ "$response"
+        assert_has "$CASE_DIR/command.log" 'original/paper.tex'
+        assert_has "$CASE_DIR/command.log" 'original/figures/source.pdf'
+        assert_not "$CASE_DIR/command.log" "add 'original/paper.pdf'"
+        assert_has "$CASE_DIR/command.log" 'paper.bib'
+        assert_has "$CASE_DIR/command.log" '[y/N]'
+        assert_has "$CASE_DIR/command.log" 'Cancelled'
+        cmp -s .git/index "$CASE_DIR/index-before-confirmation" || fail 'Declining changed the index'
+        if git rev-parse --verify HEAD >/dev/null 2>&1; then fail 'Declining created a commit'; fi
+    done
+    ok bash -c 'make git-init </dev/null'
+    cmp -s .git/index "$CASE_DIR/index-before-confirmation" || fail 'EOF changed the index'
+    assert_has "$CASE_DIR/command.log" 'Cancelled'
+    ok confirm_git_init
+    [ "$(git log -1 --format=%s)" = 'chore: initialize manuscript project' ] || fail 'Initial commit did not use Conventional Commits'
+    for file in original/paper.tex original/paper.bib original/figures/source.pdf .template-update/manifest support/git.sh tests/run.sh; do
+        git ls-files --error-unmatch "$file" >/dev/null || fail "Required source omitted from initial commit: $file"
+    done
+    for file in original/paper.pdf original/paper-original.zip original/build/paper.aux .template-update/backups/sample/Makefile; do
+        [ -z "$(git ls-files -- "$file")" ] || fail "Generated file committed: $file"
+    done
+    [ "$(git config --local --get pull.ff)" = only ] || fail 'Pull default not set'
+    [ "$(git config --local --get push.default)" = simple ] || fail 'Push default not set'
+    assert_absent "$GIT_CONFIG_GLOBAL"
+    count=$(git rev-list --count HEAD)
+    printf '\nNew author edit.\n' >> original/paper.tex
+    ok make git-init
+    [ "$(git rev-list --count HEAD)" = "$count" ] || fail 'Repeated initialization created a commit'
+    git diff --quiet && fail 'Repeated initialization discarded edits'
+    git diff --cached --quiet || fail 'Repeated initialization staged edits'
+    ok make status
+    assert_has "$CASE_DIR/command.log" 'Branch: main'
+    assert_has "$CASE_DIR/command.log" 'Origin: (none)'
+    assert_has "$CASE_DIR/command.log" 'Upstream: (none)'
+    ok git checkout -b author-branch
+    ok git config --local pull.ff false
+    ok make git-init
+    [ "$(git symbolic-ref --short HEAD)" = author-branch ] || fail 'Existing branch renamed'
+    [ "$(git config --local --get pull.ff)" = false ] || fail 'Existing preference overwritten'
+    bad env GIT_DIR="$project/.git" make git-init
+    assert_has "$CASE_DIR/command.log" 'Unset GIT_DIR'
+    (cd original && bad bash ../support/git.sh git-init) || fail 'Folder-local Git target succeeded'
+    assert_has "$CASE_DIR/command.log" 'publication root'
+    set_cfg Makefile PROJECT_ROLE template
+    bad make git-init PROJECT_ROLE=publication
+    assert_has "$CASE_DIR/command.log" 'requires an initialized publication project'
+    bad make github-init REPO=tester/paper
+    assert_has "$CASE_DIR/command.log" 'requires an initialized publication project'
+    # A project inside a parent Git tree must establish its own repository boundary.
+    cd "$project"
+    ok git init -q
+    ok make init-project "DEST=$CASE_DIR/parent/nested-paper"
+    ok git init -q "$CASE_DIR/parent"
+    cd "$CASE_DIR/parent/nested-paper"
+    git config --file "$GIT_CONFIG_GLOBAL" user.name 'Template Test Author'
+    git config --file "$GIT_CONFIG_GLOBAL" user.email 'author@example.invalid'
+    ok confirm_git_init
+    [ "$(git rev-parse --show-toplevel)" = "$CASE_DIR/parent/nested-paper" ] || fail 'Initial commit addressed parent repository'
+    [ -z "$(git -C "$CASE_DIR/parent" ls-files)" ] || fail 'Parent index was changed'
+    # Preserve the branch of an existing unborn project repository as well.
+    cd "$project"
+    ok make init-project "DEST=$CASE_DIR/unborn-paper"
+    cd "$CASE_DIR/unborn-paper"
+    ok git init -q
+    ok git symbolic-ref HEAD refs/heads/start-here
+    ok confirm_git_init
+    [ "$(git symbolic-ref --short HEAD)" = start-here ] || fail 'Unborn custom branch renamed'
+}
+setup_github_simulator() {
+    export GIT_CONFIG_GLOBAL="$CASE_DIR/git-global" GIT_CONFIG_NOSYSTEM=1
+    unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL
+    git config --file "$GIT_CONFIG_GLOBAL" user.name 'Template Test Author'
+    git config --file "$GIT_CONFIG_GLOBAL" user.email 'author@example.invalid'
+    export GH_TEST_ROOT="$CASE_DIR/github-simulator"
+    mkdir -p "$GH_TEST_ROOT/bin" "$GH_TEST_ROOT/remotes"
+    cat > "$GH_TEST_ROOT/bin/gh" <<'GH'
+#!/usr/bin/env bash
+set -e
+printf '%s\n' "$*" >> "$GH_TEST_ROOT/calls"
+case "$1 $2" in
+    'auth status') [ "${GH_TEST_AUTH_FAIL:-0}" = 0 ];;
+    'api --hostname') printf 'tester\n';;
+    'repo view')
+        repo=$3; directory=$GH_TEST_ROOT/remotes/$repo.git
+        [ -d "$directory" ] || exit 1
+        case "$(cat "$directory.visibility")" in true) visibility=PRIVATE;; false) visibility=PUBLIC;; internal) visibility=INTERNAL;; *) exit 99;; esac
+        empty=true
+        if git --git-dir="$directory" show-ref --quiet; then empty=false; fi
+        printf '%s\n%s\n%s\n' "$repo" "$visibility" "$empty";;
+    'repo create')
+        [ "${GH_TEST_CREATE_FAIL:-0}" = 0 ] || exit 1
+        repo=$3; directory=$GH_TEST_ROOT/remotes/$repo.git
+        [ ! -e "$directory" ] || exit 1
+        mkdir -p "$(dirname "$directory")"
+        git init --bare -q "$directory"
+        [ "$4" != --public ] && printf 'true\n' > "$directory.visibility" || printf 'false\n' > "$directory.visibility";;
+    *) printf 'Unexpected fake gh invocation: %s\n' "$*" >&2; exit 99;;
+esac
+GH
+    cat > "$GH_TEST_ROOT/bin/ssh" <<'SSH'
+#!/usr/bin/env bash
+set -e
+printf '%s\n' "$*" >> "$GH_TEST_ROOT/ssh-calls"
+if [ "${GH_TEST_SSH_FAIL:-0}" != 0 ]; then printf 'Permission denied (publickey).\n' >&2; exit 255; fi
+for arg in "$@"; do last=$arg; done
+case "$last" in
+    git@github.com) printf "Hi tester! You've successfully authenticated, but GitHub does not provide shell access.\n" >&2; exit 1;;
+    "git-upload-pack '"*) command=git-upload-pack; remote=${last#"git-upload-pack '"};;
+    "git-receive-pack '"*) command=git-receive-pack; remote=${last#"git-receive-pack '"}
+        [ "${GH_TEST_PUSH_FAIL:-0}" = 0 ] || exit 255;;
+    *) printf 'Unexpected fake ssh invocation: %s\n' "$*" >&2; exit 99;;
+esac
+remote=${remote%\'}
+case "$remote" in */*.git) ;; *) exit 99;; esac
+exec "$command" "$GH_TEST_ROOT/remotes/$remote"
+SSH
+    chmod +x "$GH_TEST_ROOT/bin/gh" "$GH_TEST_ROOT/bin/ssh"
+    export PATH="$GH_TEST_ROOT/bin:$PATH"
+    # Even transport subprocesses must use the simulator, never real SSH.
+    export GIT_SSH_COMMAND="$GH_TEST_ROOT/bin/ssh"
+}
+test_github_setup() {
+    fresh_author
+    setup_github_simulator
+    bad make github-init REPO=tester/paper
+    assert_has "$CASE_DIR/command.log" 'run make git-init first'
+    assert_absent "$GH_TEST_ROOT/calls"
+    ok confirm_git_init
+    # The author project folder has spaces; require an explicit valid remote name.
+    bad make github-init
+    assert_has "$CASE_DIR/command.log" 'Invalid GitHub repository name'
+    bad env GH_TEST_AUTH_FAIL=1 make github-init REPO=tester/paper
+    assert_absent "$GH_TEST_ROOT/remotes/tester/paper.git"
+    bad env GH_TEST_SSH_FAIL=1 make github-init REPO=tester/paper
+    assert_absent "$GH_TEST_ROOT/remotes/tester/paper.git"
+    bad env GH_TEST_CREATE_FAIL=1 make github-init REPO=tester/paper
+    assert_absent "$GH_TEST_ROOT/remotes/tester/paper.git"
+    bad make github-init REPO=tester/paper VISIBILITY=internal
+    ok git remote add origin git@github.com:someone/other.git
+    bad make github-init REPO=tester/paper
+    assert_has "$CASE_DIR/command.log" 'Existing origin points elsewhere'
+    [ "$(git remote get-url origin)" = git@github.com:someone/other.git ] || fail 'Conflicting origin changed'
+    ok git remote remove origin
+    bad env GH_TEST_PUSH_FAIL=1 make github-init REPO=tester/paper
+    assert_file "$GH_TEST_ROOT/remotes/tester/paper.git/HEAD"
+    [ "$(cat "$GH_TEST_ROOT/remotes/tester/paper.git.visibility")" = true ] || fail 'Default repository was public'
+    [ "$(git remote get-url origin)" = git@github.com:tester/paper.git ] || fail 'Origin was not SSH'
+    count=$(grep -c '^repo create tester/paper ' "$GH_TEST_ROOT/calls")
+    ok make github-init REPO=tester/paper
+    [ "$(grep -c '^repo create tester/paper ' "$GH_TEST_ROOT/calls")" = "$count" ] || fail 'Retry recreated remote'
+    [ "$(git rev-parse --abbrev-ref '@{upstream}')" = origin/main ] || fail 'Upstream not configured'
+    printf 'Uncommitted author note\n' > unpublished-note.txt
+    ok make github-init REPO=tester/paper
+    [ -z "$(git ls-files -- unpublished-note.txt)" ] || fail 'GitHub setup staged new edits'
+    ok git push
+    ok git pull
+    [ "$(git rev-parse HEAD)" = "$(git --git-dir="$GH_TEST_ROOT/remotes/tester/paper.git" rev-parse refs/heads/main)" ] || fail 'Initial history was not pushed'
+    ok make status
+    assert_has "$CASE_DIR/command.log" 'Upstream: origin/main'
+    ok make github-init REPO=tester/paper
+    ok git remote set-url origin https://github.com/tester/paper.git
+    ok make github-init REPO=tester/paper
+    [ "$(git remote get-url origin)" = git@github.com:tester/paper.git ] || fail 'Matching HTTPS origin not converted'
+    ok git remote set-url --push origin git@github.com:someone/other.git
+    bad make github-init REPO=tester/paper
+    assert_has "$CASE_DIR/command.log" 'Existing origin points elsewhere'
+    ok git remote set-url --push origin git@github.com:tester/paper.git
+    ok git remote set-url --add --push origin git@github.com:someone/other.git
+    bad make github-init REPO=tester/paper
+    assert_has "$CASE_DIR/command.log" 'Existing origin points elsewhere'
+    ok git config --unset-all remote.origin.pushurl
+    ok git remote remove origin
+    ok make github-init REPO=paper-public VISIBILITY=public
+    [ "$(cat "$GH_TEST_ROOT/remotes/tester/paper-public.git.visibility")" = false ] || fail 'Explicit public choice ignored'
+    ok git remote remove origin
+    bad make github-init REPO=tester/paper-public
+    assert_has "$CASE_DIR/command.log" 'visibility differs'
+    assert_not "$CASE_DIR/command.log" 'GitHub repository ready'
+    git init --bare -q "$GH_TEST_ROOT/remotes/tester/internal.git"
+    printf 'internal\n' > "$GH_TEST_ROOT/remotes/tester/internal.git.visibility"
+    bad make github-init REPO=tester/internal
+    assert_has "$CASE_DIR/command.log" 'visibility differs'
+    bad make github-init REPO=tester/internal VISIBILITY=public
+    assert_has "$CASE_DIR/command.log" 'visibility differs'
+    [ -z "$(git remote)" ] || fail 'Internal remote was attached with mismatched visibility'
+    # Attach an existing empty remote without requesting another creation.
+    git init --bare -q "$GH_TEST_ROOT/remotes/tester/existing.git"
+    printf 'true\n' > "$GH_TEST_ROOT/remotes/tester/existing.git.visibility"
+    ok make github-init REPO=tester/existing
+    assert_not "$GH_TEST_ROOT/calls" 'repo create tester/existing '
+    # A remote branch with unrelated history must not become origin.
+    git init -q "$CASE_DIR/unrelated"
+    printf 'Unrelated\n' > "$CASE_DIR/unrelated/file"
+    git -C "$CASE_DIR/unrelated" add .
+    git -C "$CASE_DIR/unrelated" commit -qm 'chore: initialize unrelated repository'
+    git -C "$CASE_DIR/unrelated" branch -M main
+    git init --bare -q "$GH_TEST_ROOT/remotes/tester/unrelated.git"
+    printf 'true\n' > "$GH_TEST_ROOT/remotes/tester/unrelated.git.visibility"
+    git -C "$CASE_DIR/unrelated" push -q "$GH_TEST_ROOT/remotes/tester/unrelated.git" main
+    ok git remote remove origin
+    bad make github-init REPO=tester/unrelated
+    assert_has "$CASE_DIR/command.log" 'unrelated history'
+    [ -z "$(git remote)" ] || fail 'Unrelated remote was attached'
+    # A related remote that is ahead is retained but never force-pushed/reset.
+    ok git clone -q "$GH_TEST_ROOT/remotes/tester/existing.git" "$CASE_DIR/collaborator"
+    git -C "$CASE_DIR/collaborator" checkout -q main
+    printf 'Collaborator change\n' > "$CASE_DIR/collaborator/new-file"
+    git -C "$CASE_DIR/collaborator" add .
+    git -C "$CASE_DIR/collaborator" commit -qm 'docs: add collaborator note'
+    git -C "$CASE_DIR/collaborator" push -q origin main
+    local_before=$(git rev-parse HEAD)
+    remote_before=$(git --git-dir="$GH_TEST_ROOT/remotes/tester/existing.git" rev-parse refs/heads/main)
+    bad make github-init REPO=tester/existing
+    assert_has "$CASE_DIR/command.log" 'no force push was attempted'
+    [ "$(git rev-parse HEAD)" = "$local_before" ] || fail 'Local branch changed after rejected push'
+    [ "$(git --git-dir="$GH_TEST_ROOT/remotes/tester/existing.git" rev-parse refs/heads/main)" = "$remote_before" ] || fail 'Remote branch overwritten'
+    ok git pull --ff-only origin main
+    ok make github-init REPO=tester/existing
+    ok git checkout --detach
+    bad make github-init REPO=tester/existing
+    assert_has "$CASE_DIR/command.log" 'Detached HEAD'
+    # Default naming works for a valid project folder and the active account.
+    cd "$project"
+    ok make init-project "DEST=$CASE_DIR/named-paper"
+    cd "$CASE_DIR/named-paper"
+    ok confirm_git_init
+    ok make github-init
+    [ "$(git remote get-url origin)" = git@github.com:tester/named-paper.git ] || fail 'Default owner/folder naming failed'
+    ok git remote remove origin
+    ok git checkout -b manuscript-work
+    ok make github-init REPO=PaperOrganization/named-paper
+    [ "$(git rev-parse --abbrev-ref '@{upstream}')" = origin/manuscript-work ] || fail 'Custom branch upstream lost'
+    [ "$(git remote get-url origin)" = git@github.com:PaperOrganization/named-paper.git ] || fail 'Organization owner ignored'
+}
+
+CASES=(test_git_initialization test_github_setup test_workflow_commands test_project_updates test_help_tools test_documentation test_template_protection test_manuscript_dependencies test_ignore_rules test_round_lifecycle test_build_incremental_archives test_bibliography test_management_and_guards test_editor_only_and_rounds test_covers_metadata_cleanup test_init_failures test_ghostscript_fallback test_howto_walkthrough)
 if [ "${1:-}" = --case ]; then
     init_case
     "$2"

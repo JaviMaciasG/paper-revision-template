@@ -1,7 +1,7 @@
 MANUSCRIPTS := original $(sort $(wildcard revised[0-9]*))
 REPLIES := $(sort $(wildcard reply[0-9]*))
 STAGES := $(MANUSCRIPTS) $(REPLIES)
-.PHONY: current status submission update-project update-template all docs help check-tools init-project new-round remove-round restore-round add-reviewer remove-reviewer info-reviewer zip clean distclean test bundle $(STAGES)
+.PHONY: git-init github-init current status submission update-project update-template all docs help check-tools init-project new-round remove-round restore-round add-reviewer remove-reviewer info-reviewer zip clean distclean test bundle $(STAGES)
 all: $(STAGES)
 
 DOC_SUPPORT := support/docs.sh support/docs.lua support/docs-header.tex support/common.sh support/latexmkrc
@@ -19,7 +19,9 @@ help:
 	 '  init-project     Create an author project: DEST=../my-paper' \
 	 '  new-round        Create next round; optional REVIEWERS="1 3 4"' \
 	 '  current          Build latest manuscript, comparison, and plain letters' \
-	 '  status           Show rounds, reviewers, outputs, and TODO locations' \
+	 '  status           Show rounds, outputs, TODOs, and local Git information' \
+	 '  git-init         Preview sources and confirm the initial Git commit' \
+	 '  github-init      Create/connect SSH origin; optional REPO=owner/name VISIBILITY=public' \
 	 '  submission       Prepare latest submission; optional ROUND=N COVER=1' \
 	 '  update-project   Preview author update: DEST=path; APPLY=1 applies' \
 	 '  update-template  Preview update from FROM=template-path; APPLY=1 applies' \
@@ -61,3 +63,9 @@ update-project:
 update-template:
 	@test -n "$(FROM)" || { printf '%s\n' 'Set FROM=/path/to/template-checkout' >&2; exit 1; }
 	@$(BASH_CMD) "$(FROM)/support/update.sh" --dest "$(CURDIR)" --apply "$(or $(APPLY),0)"
+
+# Export user-supplied data instead of interpolating it into shell command text.
+export TEMPLATE_GIT_REPO := $(REPO)
+export TEMPLATE_GIT_VISIBILITY := $(or $(VISIBILITY),private)
+git-init github-init:
+	@$(BASH_CMD) support/git.sh $@

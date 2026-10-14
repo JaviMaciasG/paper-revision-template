@@ -24,7 +24,7 @@ case "$command" in
         record_managed "$project"
         [ ! -e "$destination" ] && [ ! -L "$destination" ] || fail "Refusing to overwrite existing destination: $destination"
         mv -- "$project" "$destination"
-        printf 'Created %s\nNext steps:\n  1. Replace original/paper.tex and original/paper.bib; keep dependencies inside original/.\n  2. Enter your project: cd %q\n  3. Build: make current\n  4. Prepare original submission: make submission\n  5. After receiving reviews: make new-round REVIEWERS="1 2"\nSee HOWTO.md for a complete example.\n' "$destination" "$destination";;
+        printf 'Created %s\nNext steps:\n  1. Replace original/paper.tex and original/paper.bib; keep dependencies inside original/.\n  2. Enter your project: cd %q\n  3. Build: make current\n  4. Prepare original submission: make submission\n  Optional version control: make git-init, then make github-init.\n  5. After receiving reviews: make new-round REVIEWERS="1 2"\nSee HOWTO.md for a complete example.\n' "$destination" "$destination";;
     new-round)
         require_publication "$command"
         # Validate explicit membership before locks, builds, or copies.
