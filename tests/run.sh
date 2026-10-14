@@ -348,10 +348,39 @@ test_ignore_rules() {
     for file in README.pdf HOWTO.pdf original/paper.aux original/paper.bcf original/paper.ind original/paper.gls original/paper.nav original/paper.synctex.gz original/paper.synctex.gz\(busy\) original/.notes.tex.swp original/.DS_Store original/Thumbs.db original/paper.bak original/paper.pdf original/paper-original.zip revised1/paper-revised1.zip .removed-rounds/round2-example/revised2/paper-revised2.zip .removed-rounds/round2-example/revised2/paper.pdf .removed-rounds/round2-example/reply2/reviewer1.pdf; do
         ok git -c core.excludesFile=/dev/null check-ignore -q "$file"
     done
-    for extension in tex bib bst sty cls pdf eps svg png jpg tikz ist xdy mp mf gnuplot table zip; do
+    # Package outputs are ignored at any stage, including archived rounds.
+    for file in \
+        sample-converted-to.sample sample.bbl-SAVE-ERROR sample.bcf-SAVE-ERROR acs-sample.bib sample.rubbercache \
+        rubber.cache latex.out/cache-file sample.data.minted sample.thm sample.atfi \
+        sample.pre sample.soc sample.loc sample.cut sample.tuc \
+        sample.tui sample.tuo sample.cpt sample.spl sample.ent \
+        sample.lox sample.t1 sample.t12 sample.tfm sample.end \
+        sample.aend sample.eledsec1 sample.eledsec1R sample.eledsec12 sample.eledsec12R \
+        sample.eledsec122 sample.eledsec122R sample.glg-abr sample.glo-abr sample.gls-abr \
+        sample.lzo sample.lzs sample-gnuplottex-sample sample.gaux sample.gtex \
+        sample.4ct sample.4tc sample.idv sample.lg sample.trc \
+        sample.xref sample.hd sample-concordance.tex sample-tikzDictionary sample.ltjruby \
+        sample.maf sample.mlf sample.mlt sample.mtc2sample sample.slf2sample \
+        sample.slt2sample sample.stc2sample sample.mw sample.newpax sample.pax \
+        sample.pdfpc sample.sagetex.sage sample.sagetex.py sample.sagetex.scmd sample.wrt \
+        sample.spell.bad sample.spell.txt sample.sout sample.sympy sympy-plots-for-sample.tex/cache-file \
+        sample.upa sample.upb sample.pytxcode pythontex-files-sample/cache-file sample.listing \
+        sample.loe sample.hst sample.ver sample.lod sample.xcp \
+        sample.xmpi sample.xyc sample.xyd sample.ttt sample.fff \
+        sample-tags.tex sample.lpz TSWLatexianTempsample sample.bak2sample .texpadtmp \
+        sample~2sample sample.tps \
+        ; do
+        for stage in original revised1 reply1 .removed-rounds/round2-example/revised2; do
+            ok git -c core.excludesFile=/dev/null check-ignore -q "$stage/$file"
+        done
+    done
+    ok git -c core.excludesFile=/dev/null check-ignore -q auto/paper.el
+    for extension in tex bib bst sty cls pdf eps svg png jpg tikz ist xdy mp mf gnuplot table zip ps el md5 1 12 123 1R 12R 123R; do
         bad git -c core.excludesFile=/dev/null check-ignore -q "original/figures/source.$extension"
         bad git -c core.excludesFile=/dev/null check-ignore -q ".removed-rounds/round2-example/revised2/figures/source.$extension"
     done
+    bad git -c core.excludesFile=/dev/null check-ignore -q original/figures/_minted-source.tex
+    bad git -c core.excludesFile=/dev/null check-ignore -q original/figures/sourceNotes.bib
     bad git -c core.excludesFile=/dev/null check-ignore -q reply1/.reviewer-scaffolds/reviewer1.tex
     bad git -c core.excludesFile=/dev/null check-ignore -q README.md
     bad git -c core.excludesFile=/dev/null check-ignore -q HOWTO.md
@@ -1042,6 +1071,10 @@ test_git_initialization() {
     mkdir -p original/figures original/build .template-update/backups/sample
     printf 'Source PDF asset\n' > original/figures/source.pdf
     printf 'Generated PDF\n' > original/paper.pdf
+    printf 'Bibliography recovery output\n' > original/paper.bcf-SAVE-ERROR
+    printf 'Minted cache\n' > original/paper.data.minted
+    printf 'Author-maintained plot source\n' > original/figures/source.gnuplot
+    cmp -s .gitignore "$TEST_SOURCE_ROOT/.gitignore" || fail 'Initialized project did not receive template ignore rules'
     printf 'Generated ZIP\n' > original/paper-original.zip
     printf 'Auxiliary\n' > original/build/paper.aux
     printf 'Backup\n' > .template-update/backups/sample/Makefile
@@ -1064,10 +1097,10 @@ test_git_initialization() {
     assert_has "$CASE_DIR/command.log" 'Cancelled'
     ok confirm_git_init
     [ "$(git log -1 --format=%s)" = 'chore: initialize manuscript project' ] || fail 'Initial commit did not use Conventional Commits'
-    for file in original/paper.tex original/paper.bib original/figures/source.pdf .template-update/manifest support/git.sh tests/run.sh; do
+    for file in original/paper.tex original/paper.bib original/figures/source.pdf original/figures/source.gnuplot .template-update/manifest support/git.sh tests/run.sh; do
         git ls-files --error-unmatch "$file" >/dev/null || fail "Required source omitted from initial commit: $file"
     done
-    for file in original/paper.pdf original/paper-original.zip original/build/paper.aux .template-update/backups/sample/Makefile; do
+    for file in original/paper.pdf original/paper-original.zip original/paper.bcf-SAVE-ERROR original/paper.data.minted original/build/paper.aux .template-update/backups/sample/Makefile; do
         [ -z "$(git ls-files -- "$file")" ] || fail "Generated file committed: $file"
     done
     [ "$(git config --local --get pull.ff)" = only ] || fail 'Pull default not set'
