@@ -53,8 +53,9 @@ done < "$transaction/paths"
 set_cfg "$incoming/Makefile" PROJECT_ROLE publication
 publication_readme "$incoming/README.md"
 record_managed "$incoming"
+legacy=0
 if [ -f "$destination/.template-update/manifest" ]; then baseline=$destination/.template-update/manifest
-else baseline=$TEMPLATE_SUPPORT/update-legacy.tsv; printf 'Legacy project: using the baseline for template commit 6f956cd.\n'; fi
+else legacy=1; baseline=$TEMPLATE_SUPPORT/update-legacy.tsv; printf 'Legacy project: using the baseline for template commit 6f956cd.\n'; fi
 [ -f "$baseline" ] || fail 'No recognized managed-file baseline; update this project manually'
 # Validate manifest fields before using any paths, including removals.
 awk -F '\t' 'NF!=3 || $1 !~ /^[0-9]+$/ || $2 !~ /^[0-9]+$/ || seen[$3]++ {bad=1} END {exit bad}' "$baseline" || fail 'Malformed managed-file manifest'
@@ -63,6 +64,16 @@ while IFS=$'\t' read -r crc size relative; do
     safe_path "$destination" "$relative"
 done < "$baseline"
 previous_signature() { awk -F '\t' -v path="$1" '$3==path {print $1 "\t" $2; exit}' "$baseline"; }
+# Additional exact upstream versions are accepted only for pre-manifest projects.
+# A recorded baseline still protects all subsequent author customizations.
+recognized_legacy_version() {
+    [ "$legacy" = 1 ] && [ -n "$2" ] || return 1
+    local match
+    match=$(awk -F '\t' -v path="$1" -v signature="$2" '
+      $3==path && ($1 "\t" $2)==signature {print $4; exit}' "$TEMPLATE_SUPPORT/update-legacy-variants.tsv")
+    [ -n "$match" ] || return 1
+    printf '%s' "$match"
+}
 changes=(); actions=(); preserved=(); conflicts=0
 printf 'Update preview for %s\n' "$destination"
 while IFS=$'\t' read -r crc size relative; do
@@ -79,6 +90,9 @@ while IFS=$'\t' read -r crc size relative; do
     [ "$local_signature" != "$source_signature" ] || continue
     if { [ -z "$old_signature" ] && [ -z "$local_signature" ]; } || { [ -n "$old_signature" ] && [ "$local_signature" = "$old_signature" ]; }; then
         changes+=("$relative"); actions+=(replace); printf '  replace %s\n' "$relative"
+    elif version=$(recognized_legacy_version "$relative" "$local_signature"); then
+        changes+=("$relative"); actions+=(replace)
+        printf '  replace recognized legacy %s (template commit %s)\n' "$relative" "$version"
     else
         case "$relative" in
             README.md|HOWTO.md) preserved+=("$relative"); printf '  preserve customized %s (incoming copy available after APPLY=1)\n' "$relative";;

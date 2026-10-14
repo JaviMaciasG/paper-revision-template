@@ -974,12 +974,26 @@ test_project_updates() {
     assert_has "$CASE_DIR/command.log" 'Managed source symlink'
     rm "$incoming_template/support/archive.mk"
     cp "$CASE_DIR/source-archive" "$incoming_template/support/archive.mk"
-    # Exercise pre-manifest root migration through the source-side target.
+    # Recorded baselines protect even a deliberate return to an older upstream runner.
+    cp "$TEST_SOURCE_ROOT/tests/fixtures/legacy/run-185b190.sh" tests/run.sh
+    bad make update-template "FROM=$incoming_template" APPLY=1
+    assert_has "$CASE_DIR/command.log" 'CONFLICT tests/run.sh'
+    # Exercise pre-manifest root migration and the recognized older test runner.
     rm .template-update/manifest
     cp "$TEST_SOURCE_ROOT/tests/fixtures/legacy/Makefile" Makefile
+    printf '\n# Author customization.\n' >> tests/run.sh
+    bad make -C "$incoming_template" update-project "DEST=$author" APPLY=1
+    assert_has "$CASE_DIR/command.log" 'CONFLICT tests/run.sh'
+    assert_has tests/run.sh '# Author customization.'
+    cp "$TEST_SOURCE_ROOT/tests/fixtures/legacy/run-185b190.sh" tests/run.sh
     ok make -C "$incoming_template" update-project "DEST=$author"
-    assert_has "$CASE_DIR/command.log" 'Legacy project'
+    assert_has "$CASE_DIR/command.log" 'recognized legacy tests/run.sh (template commit 185b190)'
+    cmp -s tests/run.sh "$TEST_SOURCE_ROOT/tests/fixtures/legacy/run-185b190.sh" || fail 'Legacy preview changed test runner'
     ok make -C "$incoming_template" update-project "DEST=$author" APPLY=1
+    cmp -s tests/run.sh "$incoming_template/tests/run.sh" || fail 'Legacy test runner was not updated'
+    backup=$(sed -n 's/^Update complete. Backup: //p' "$CASE_DIR/command.log")
+    cmp -s "$backup/old/tests/run.sh" "$TEST_SOURCE_ROOT/tests/fixtures/legacy/run-185b190.sh" || fail 'Old test runner was not backed up'
+
     assert_has Makefile 'include support/root.mk'
     assert_file .template-update/manifest
     # Replacing the role declaration cannot be bypassed by a Make argument.
